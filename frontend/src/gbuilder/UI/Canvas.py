@@ -8,7 +8,7 @@ from Core.Wireless_Connection import *
 
 realMnumber=3
 deviceTypes = {"Bridge":Bridge, "Firewall":Firewall, "Hub":Hub, "Mobile":Mobile,
-               "Router":Router, "Subnet":Subnet, "Switch":Switch, "REALM":REALM,
+               "Router":Router,"Cloud":Cloud, "Subnet":Subnet, "Switch":Switch, "REALM":REALM,
                "UML":UML, "UML_FreeDOS":UML_FreeDOS, "UML_Android":UML_Android, "Wireless_access_point":Wireless_access_point}
 
 class View(QtGui.QGraphicsView):
