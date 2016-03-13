@@ -6,3 +6,7 @@ import Core.util
 
 class Cloud(Interfaceable):
     device_type = "Cloud"
+
+    def __init__(self):
+        Interfaceable.__init__(self)
+        self.lightPoint = QPoint(-19,-3)
