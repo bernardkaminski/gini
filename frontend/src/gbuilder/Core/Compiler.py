@@ -65,6 +65,7 @@ class Compiler:
         self.routing_table_clear()
         if options["autorouting"]:
             self.routing_table_router()
+            self.routing_table_cloud()
             #self.routing_table_wireless_access_point()
             self.routing_table_entry()
             self.routing_table_uml()
@@ -171,8 +172,8 @@ class Compiler:
 
                 if options["autogen"]:
                     subnet = str(router.getInterfaceProperty("subnet", node)).rsplit(".", 1)[0]
-                    router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + router.getID()), node)
-                    router.setInterfaceProperty("mac", "fe:fd:03:%02x:00:%02x" % (router.getID(), i), node)
+                    router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + (10-router.getID())), node)
+                    router.setInterfaceProperty("mac", "fe:fd:03:%02x:00:%02x" % (10-router.getID(), i), node)
     def compile_cloud(self):
         """
         Compile all the Routers.
@@ -577,7 +578,6 @@ class Compiler:
             interfaceable.emptyRouteTable()
             self.findAdjacentRouters(interfaceable)
             self.findAdjacentSubnets(interfaceable)
-            git
     def routing_table_uml(self):
         """
         Compute route tables of UMLs.
@@ -616,6 +616,12 @@ class Compiler:
         Compute route tables of Routers.
         """
         self.routing_table_interfaceable("Router")
+
+    def routing_table_cloud(self):
+        """
+        Compute route tables of CRouters.
+        """
+        self.routing_table_interfaceable("Cloud")
         
     def routing_table_wireless_access_point(self):
         """
@@ -628,6 +634,10 @@ class Compiler:
         Add routing entries for Routers.
         """
         for uml in self.compile_list["Router"]:
+            for subnet in self.compile_list["Subnet"]:
+                uml.addRoutingEntry(subnet.getProperty("subnet"))
+
+        for uml in self.compile_list["Cloud"]:
             for subnet in self.compile_list["Subnet"]:
                 uml.addRoutingEntry(subnet.getProperty("subnet"))
 
@@ -656,7 +666,7 @@ class Compiler:
         
         visitedNodes.append(otherDevice)
 
-        if otherDevice.device_type in ["Router", "Wireless_access_point"]:
+        if otherDevice.device_type in ["Router", "Wireless_access_point","Cloud"]:
             myself.addAdjacentRouter(otherDevice, interface)
         elif otherDevice.device_type in ["UML", "Mobile", "REALM"]:
             pass
