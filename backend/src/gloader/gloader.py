@@ -3,6 +3,10 @@
 # Revised by Daniel Ng
 
 import sys, os, signal, time, subprocess
+import xmlrpclib
+import boto3
+import time
+import sys
 
 from program import Program
 #import batch_ipcrm
@@ -50,6 +54,7 @@ def startGINI(myGINI, options):
     success = success and createVWR(myGINI, options)       
     print "\nStarting REALMs..."
     success = success and createVRM(myGINI, options)
+    print "\nStarting cRouters"
 
     if (not success):
         print "Problem in creating GINI network"
@@ -239,6 +244,9 @@ def get_IF_properties(netWIF, num_nodes):
             prop += "mac set node %d txprob %s\n" % (i+1, mlayer.trans)   
     return prop   
 
+def createCR(myGINI, options):
+    time.sleep(GROUTER_WAIT)
+
 def createVR(myGINI, options):
     "create router config file, and start the router"
     routerDir = options.routerDir
@@ -272,22 +280,39 @@ def createVR(myGINI, options):
         ### ------- execute ---------- ###
         # go to the router directory to execute the command
         oldDir = os.getcwd()
-        os.chdir(subRouterDir)
-        command = "screen -d -m -L -S %s %s " % (router.name, GR_PROG_BIN)
-        command += "--config=%s.conf " % GR_PROG
-        command += "--confpath=" + os.environ["GINI_HOME"] + "/data/" + router.name + " "
-        command += "--interactive=1 "
-        command += "%s" % router.name
-        #print command
-        startOut = open("startit.sh", "w")
-        startOut.write(command)
-        startOut.close()
-        os.chmod("startit.sh",0755)
-        system("./startit.sh")
-        print "[OK]"
-        os.chdir(oldDir)
-        # Wait after starting router so they have time to create sockets
-        time.sleep(GROUTER_WAIT)
+        if "Cloud" in router.name:
+            #start rpc server
+            os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
+            subprocess.call(['python','AmazonCloudServer.py'])
+            #wait for server to go up
+            time.sleep(1)
+            s = xmlrpclib.ServerProxy('http://localhost:8000')
+            s.configure_aws("","")#put keys here didnt want to commit them
+            s.create_instance()
+            s.create_tunnel()
+            #continue here check if we need to do anything else tony
+            os.chdir(oldDir)
+        else:
+            oldDir = os.getcwd()
+            os.chdir(subRouterDir)
+            command = "screen -d -m -L -S %s %s " % (router.name, GR_PROG_BIN)
+            command += "--config=%s.conf " % GR_PROG
+            command += "--confpath=" + os.environ["GINI_HOME"] + "/data/" + router.name + " "
+            command += "--interactive=1 "
+            command += "%s" % router.name
+            #print command
+            startOut = open("startit.sh", "w")
+            startOut.write(command)
+            startOut.close()
+            os.chmod("startit.sh",0755)
+            system("./startit.sh")
+            print "[OK]"
+            os.chdir(oldDir)
+            # Wait after starting router so they have time to create sockets
+            time.sleep(GROUTER_WAIT)
+
+
+
     return True
 
 def createVM(myGINI, options):
