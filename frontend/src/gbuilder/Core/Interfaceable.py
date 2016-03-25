@@ -294,7 +294,7 @@ class Interfaceable(Device):
                                   subnet,
                                   target)
         else:
-            if self.device_type == "Router" or self.device_type == "Cloud":
+            if self.device_type == "Router" or self.device_type == "Cloud" or self.device_type == "Tunnel":
                 interface = self.getInterface(None, subnet)
                 self.addEntry(interface[QtCore.QString("mask")],
                               "0.0.0.0",

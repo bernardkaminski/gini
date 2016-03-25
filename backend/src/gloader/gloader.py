@@ -6,7 +6,9 @@ import sys, os, signal, time, subprocess
 import xmlrpclib
 import boto3
 import time
+from AmazonFunctions import AmazonCloudFunctions
 import sys
+from urllib2 import urlopen
 
 from program import Program
 #import batch_ipcrm
@@ -247,7 +249,7 @@ def get_IF_properties(netWIF, num_nodes):
 def createCR(myGINI, options):
     time.sleep(GROUTER_WAIT)
 
-def createVR(myGINI, options):
+def createVR(myGxINI, options):
     "create router config file, and start the router"
     routerDir = options.routerDir
     switchDir = options.switchDir
@@ -281,17 +283,32 @@ def createVR(myGINI, options):
         # go to the router directory to execute the command
         oldDir = os.getcwd()
         if "Cloud" in router.name:
+            #add to config file
+            s = AmazonCloudFunctions()
+            for tunIF in router.tunIF:
+                getCloudIFOutLine(tunIF,s)
+                configOut = open(configFile,"w")
+                configOut.write()
+                configOut.close()
+
             #start rpc server
-            os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
-            subprocess.call(['python','AmazonCloudServer.py'])
+            #os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
+            #subprocess.call(['python','AmazonCloudServer.py'])
             #wait for server to go up
-            time.sleep(1)
-            s = xmlrpclib.ServerProxy('http://localhost:8000')
+            #time.sleep(1)
+            #s = xmlrpclib.ServerProxy('http://localhost:8000')
+
             s.configure_aws("","")#put keys here didnt want to commit them
             s.create_instance()
             s.create_tunnel()
             #continue here check if we need to do anything else tony
             os.chdir(oldDir)
+        elif("Tunnel" in router.name):
+            for tunIF in router.tunIF:
+                configOut = open(configFile,"w")
+                configOut.write()
+                configOut.close()
+
         else:
             oldDir = os.getcwd()
             os.chdir(subRouterDir)
@@ -573,6 +590,32 @@ def getVRIFOutLine(nwIf, socketName):
         outLine += "\n"
     outLine += "display update-delay 2\n"
     return outLine
+def getCloudIFOutLine(nwIf,amazon):
+    print("Trying to get public ip")
+    local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
+    print("Got public ip")
+    ifconfig = "ifconfig add"+nwIf.name +"-dstip "+local_ip+" -dstport 0 -addr"+ nwIf.ip+"-hwaddr"+ nwIf.nic+"\n"
+    for r in nwIf.routes:
+        route = "route add -dev"+ nwIf.name+"-net"+ r.dest + "-netmask"+ r.netmask+"\n"
+        route = "route add -dev tun0 -net 20.20.20.20 -netmask 255.255.255.255\n"
+    #raw socket commands for injecting packets into the kernel
+
+    ifconfig_raw = "ifconfig add raw1 -addr "+amazon.get_private_ip()+"\n"
+    ifconfig_raw = "ifconfig add raw1 -addr "+self.new_instance_private_ip+"\n"
+
+    #for some reason unable to get the default gateway ip address from boto3
+    #have to do it this way
+
+    cloud_arp_table = os.popen('ssh -i GINI.pem ubuntu@'+amazon.amazon.get_ip()+" 'arp -a'").read()
+    default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
+    route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
+    return (ifconfig + route + ifconfig_raw+ route_raw)
+def getLocalTunnelOutline(nwIf,amazon):
+    ifconfig = "ifconfig add" +nwIf.name+ "-dstip " + amazon.get_ip() + " -dstport 0 -addr"+nwIf.ip+"-hwaddr"+nwIf.nic+"\n"
+    for r in nwIf.routes:
+        route = "route add -dev"+ nwIf.name+"-net"+ r.dest + "-netmask"+ r.netmask+"\n"
+    return (ifconfig+route)
+
 
 def getVMIFOutLine(nwIf, socketName, name):
     "convert the UML network interface specs into a string"

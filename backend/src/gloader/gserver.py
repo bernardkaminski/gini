@@ -204,6 +204,7 @@ class ReceiveInitStartCommand(Command):
         if self.server.checkAlive("glinux") or \
             self.server.checkAlive("uswitch") or \
             self.server.checkAlive("grouter"):
+            #should check if this also stops a crouter
             print "A previous running topology was not stopped properly."
             global recovery
             recovery = True

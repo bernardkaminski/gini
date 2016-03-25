@@ -6,6 +6,7 @@ from Core.globals import options, environ, mainWidgets
 from PyQt4 import QtCore
 import os, re
 
+
 class Compiler:
     def __init__(self, device_list, filename):
         """
@@ -58,6 +59,7 @@ class Compiler:
         if options["autogen"]:
             self.autogen_router()
             self.autogen_cloud()
+            self.autogen_tunnel()
             self.autogen_UML()
             self.autogen_REALM()
             self.autogen_mobile()
@@ -66,12 +68,14 @@ class Compiler:
         if options["autorouting"]:
             self.routing_table_router()
             self.routing_table_cloud()
+            self.routing_table_tunnel()
             #self.routing_table_wireless_access_point()
             self.routing_table_entry()
             self.routing_table_uml()
             #self.routing_table_mobile()
         
         self.compile_router()
+        self.compile_tunnel()
         self.compile_cloud()
         self.compile_UML()
         self.compile_REALM()
@@ -159,6 +163,58 @@ class Compiler:
             
             self.pass_mask(subnet)
 
+
+    def autogen_tunnel(self):
+        """
+        Auto-generate properties for Routers.
+        """
+        for router in self.compile_list["Tunnel"]:
+            i = 0
+            for con in router.edges():
+                i += 1
+                node = con.getOtherDevice(router)
+                node = node.getTarget(router)
+
+                if options["autogen"]:
+                    subnet = str(router.getInterfaceProperty("subnet", node)).rsplit(".", 1)[0]
+                    router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + 20-router.getID()), node)
+                    router.setInterfaceProperty("mac", "fe:fd:03:%02x:00:%02x" % (20-router.getID(), i), node)
+
+
+
+    def compile_tunnel(self):
+        """
+        Compile all the Routers.
+        """
+        for router in self.compile_list["Tunnel"]:
+            self.output.write("<vr name=\"" + router.getName() + "\">\n")
+
+            edges = router.edges()
+            if len(edges) < 2:
+                self.generateConnectionWarning(router, 2)
+
+            for con in edges:
+                node = con.getOtherDevice(router)
+                if(node.device_type=="Subnet"):
+                    node = node.getTarget(router)
+                if(node.device_type =="Cloud"):
+                    type ="\t<loctun>\n"
+                    end ="\t</loctun>\n"
+                else:
+                    type ="\t<netif>\n"
+                    end = "\t</netif>\n"
+
+                self.output.write(type)
+
+                interface = router.getInterface(node)
+                mapping = {"subnet":"network", "mac":"nic", "ipv4":"ip"}
+
+                self.writeInterface(router, interface, mapping)
+
+                self.output.write(end)
+            self.output.write("</vr>\n\n")
+
+
     def autogen_cloud(self):
         """
         Auto-generate properties for Routers.
@@ -172,8 +228,11 @@ class Compiler:
 
                 if options["autogen"]:
                     subnet = str(router.getInterfaceProperty("subnet", node)).rsplit(".", 1)[0]
-                    router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + (10-router.getID())), node)
+                    router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + 10-router.getID()), node)
                     router.setInterfaceProperty("mac", "fe:fd:03:%02x:00:%02x" % (10-router.getID(), i), node)
+
+
+
     def compile_cloud(self):
         """
         Compile all the Routers.
@@ -189,7 +248,7 @@ class Compiler:
                 node = con.getOtherDevice(router)
                 node = node.getTarget(router)
 
-                self.output.write("\t<netif>\n")
+                self.output.write("\t<clotun>\n")
 
                 interface = router.getInterface(node)
                 mapping = {"subnet":"network", "mac":"nic", "ipv4":"ip"}
@@ -198,7 +257,7 @@ class Compiler:
 
                 self.output.write("\t</netif>\n")
 
-            self.output.write("</vr>\n\n")
+            self.output.write("</clotun>\n\n")
 
     def autogen_router(self):
         """
@@ -206,11 +265,11 @@ class Compiler:
         """
         for router in self.compile_list["Router"]:
             i = 0
-            for con in router.edges(): 
+            for con in router.edges():
                 i += 1
                 node = con.getOtherDevice(router)
                 node = node.getTarget(router)
-                
+
                 if options["autogen"]:
                     subnet = str(router.getInterfaceProperty("subnet", node)).rsplit(".", 1)[0]
                     router.setInterfaceProperty("ipv4", "%s.%d" % (subnet, 127 + router.getID()), node)
@@ -541,7 +600,7 @@ class Compiler:
 
         for con in node.edges():
             otherDevice = con.getOtherDevice(node)
-            if otherDevice.device_type in ["Router", "UML", "REALM", "Mobile","Cloud"]:
+            if otherDevice.device_type in ["Router", "UML", "REALM", "Mobile","Cloud","Tunnel"]:
                 target = node
                 if node.device_type == "Subnet":
                     target = node.getTarget(otherDevice)
@@ -566,6 +625,12 @@ class Compiler:
             interfaceable.emptyRouteTable()
 
         for interfaceable in self.compile_list["REALM"]:
+            interfaceable.emptyAdjacentLists()
+            interfaceable.emptyRouteTable()
+        for interfaceable in self.compile_list["Cloud"]:
+            interfaceable.emptyAdjacentLists()
+            interfaceable.emptyRouteTable()
+        for interfaceable in self.compile_list["Tunnel"]:
             interfaceable.emptyAdjacentLists()
             interfaceable.emptyRouteTable()
 
@@ -622,6 +687,12 @@ class Compiler:
         Compute route tables of CRouters.
         """
         self.routing_table_interfaceable("Cloud")
+
+    def routing_table_tunnel(self):
+        """
+        Compute route tables of Tunnel.
+        """
+        self.routing_table_interfaceable("Tunnel")
         
     def routing_table_wireless_access_point(self):
         """
@@ -638,6 +709,10 @@ class Compiler:
                 uml.addRoutingEntry(subnet.getProperty("subnet"))
 
         for uml in self.compile_list["Cloud"]:
+            for subnet in self.compile_list["Subnet"]:
+                uml.addRoutingEntry(subnet.getProperty("subnet"))
+
+        for uml in self.compile_list["Tunnel"]:
             for subnet in self.compile_list["Subnet"]:
                 uml.addRoutingEntry(subnet.getProperty("subnet"))
 
@@ -666,7 +741,7 @@ class Compiler:
         
         visitedNodes.append(otherDevice)
 
-        if otherDevice.device_type in ["Router", "Wireless_access_point","Cloud"]:
+        if otherDevice.device_type in ["Router", "Wireless_access_point","Cloud","Tunnel"]:
             myself.addAdjacentRouter(otherDevice, interface)
         elif otherDevice.device_type in ["UML", "Mobile", "REALM"]:
             pass

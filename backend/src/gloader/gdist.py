@@ -30,7 +30,7 @@ UML_WAIT_DELAY = 1.5 # wait delay between checking alive UML
 GROUTER_WAIT = 0.5 # wait delay between starting routers
 GINI_TMP_FILE = "gini_tmp_file" # tmp file used when checking alive UML
 LOG_FILE = "gdist_log" # log file for gloader messages
-SCREEN_LOG = False # telling to enable/disable screenlog file
+SCREEN_LOG = True # telling to enable/disable screenlog file
 SSHOPTS = " -o StrictHostKeyChecking=false "
 
 # set this flag to True if running without gbuilder
@@ -664,6 +664,7 @@ def checkAliveGini(ips):
 old = False
 
 myProg = Start(sys.argv[0], SRC_FILENAME)
+print SRC_FILENAME
 if (not myProg.processOptions(sys.argv[1:])):
     sys.exit(1)
 options = myProg.options

@@ -10,7 +10,9 @@ class GINI_NW:
     vrm = []
     vmb = []
     vr = []
+    cr=[]
     vwr = []
+
 
     def __init__(self, docDOM):
         "Initialize the GINI_NW class"
@@ -86,6 +88,9 @@ class GINI_NW:
             self.vrm.append(newVRM)
         return True
 
+    def getCRs(self, elemments):
+        a=5
+
     def getVMBs(self, elements):
         "get wireless virtual machine configurations"
         for vmb in elements:
@@ -120,6 +125,12 @@ class GINI_NW:
                     if (para.tagName.lower() == "netif"):
                         newIF = self.getVRIF(para, len(newVR.netIF)+1)
                         newVR.addNetIF(newIF)
+                    if (para.tagName.lower() == "loctun"):
+                        newIF = self.getTUNIF(para, len(newVR.netIF)+1)
+                        newVR.addTunIF(newIF)
+                    if (para.tagName.lower() == "clotun"):
+                        newIF = self.getTUNIF(para, len(newVR.netIF)+1)
+                        newVR.addTunIF(newIF)
             self.vr.append(newVR)
         return True
                                 
@@ -211,7 +222,30 @@ class GINI_NW:
                     newRoute = self.getVRRoute(para)
                     myIF.addRoute(newRoute)
         return myIF
-        
+
+    def getTUNIF(self, elem, index):
+        "get virtual router network interface"
+        ifName =  "tun%d" % index
+        myIF = VRInterface(ifName)
+        for para in elem.childNodes:
+            if (para.nodeType == para.ELEMENT_NODE):
+                if (para.tagName.lower() == "target"):
+                    myIF.target = self.getTextPart(para)
+                if (para.tagName.lower() == "nic"):
+                    myIF.nic = self.getTextPart(para)
+                if (para.tagName.lower() == "ip"):
+                    myIF.ip = self.getTextPart(para)
+                if (para.tagName.lower() == "network"):
+                    myIF.network = self.getTextPart(para)
+                if (para.tagName.lower() == "gw"):
+                    myIF.gw = self.getTextPart(para)
+                if (para.tagName.lower() == "mtu"):
+                    myIF.mtu = self.getTextPart(para)
+                if (para.tagName.lower() == "rtentry"):
+                    newRoute = self.getVRRoute(para)
+                    myIF.addRoute(newRoute)
+        return myIF
+
     def getVWRIF(self, elem, index):
         "get virtual wireless router network interface"
         ifName =  "eth%d" % index

@@ -233,6 +233,7 @@ class Energy:
 class VR:
     name = ""
     netIF = None
+    tunIF = None
     cli = False
 
     def __init__(self, vrName):
@@ -242,6 +243,8 @@ class VR:
 
     def addNetIF(self, newIF):
         self.netIF.append(newIF)
+    def addTunIF(self, tunIF):
+        self.tunIF.append(tunIF)
 
     def printMe(self):
         print "[Name: " + self.name + "]",
