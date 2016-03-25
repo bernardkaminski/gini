@@ -11,6 +11,7 @@ import sys
 from urllib2 import urlopen
 
 from program import Program
+
 #import batch_ipcrm
 
 # set the program names
@@ -292,16 +293,22 @@ def createVR(myGxINI, options):
                 configOut.close()
 
             #start rpc server
-            #os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
-            #subprocess.call(['python','AmazonCloudServer.py'])
-            #wait for server to go up
-            #time.sleep(1)
-            #s = xmlrpclib.ServerProxy('http://localhost:8000')
 
+            
+            s.configure_aws("","")#put keys here didnt want to commit them
+            #os.chdir("/home/design/GINI_Cloud")#this is path to where connor clouds stuff is onmy machine
+            # start child process in the background because this server runs forever in a loop
+            # don't wait for process to complete and return exit code
+            #subprocess.Popen(['python','AmazonCloudServer.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
+            # wait for server to go up
+            #time.sleep(3)
+            #s = xmlrpclib.ServerProxy('http://localhost:8000')
+            #s.configure_aws(os.environ['AWS_KEY'],os.environ['AWS_SECRET']) # set keys as environment variables
             s.configure_aws("","")#put keys here didnt want to commit them
             s.create_instance()
             s.create_tunnel()
-            #continue here check if we need to do anything else tony
+
+
             os.chdir(oldDir)
         elif("Tunnel" in router.name):
             for tunIF in router.tunIF:
