@@ -1,6 +1,7 @@
 from urllib2 import urlopen
 import os
 import shutil
+from xml.etree.ElementPath import _SelectorContext
 import boto3
 import time
 import sys
@@ -21,13 +22,13 @@ import multiprocessing
 class AmazonCloudFunctions:
     def __init__(self):
         self.key_pair = None
-        self.key_name = "GINI"
+        self.key_name = os.environ["GINI_HOME"]+"/GINI.pem"
         self.ec2 = None
         self.new_instance_ip = None  # just for debugging
         self.new_instance_private_ip = None
 
     def print_routes(self):
-        string = os.popen('ssh -i GINI.pem ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
+        string = os.popen('ssh -i '+self.key_name+' ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
         print string
 
     def configure_aws(self, key, secret_key):
@@ -95,19 +96,19 @@ class AmazonCloudFunctions:
             if inst.public_ip_address == ip:
                 inst.terminate()
 
-    def get_running_instance(self):
+    def get_running_instance(self, ip ):
         for inst in self.ec2.instances.all():
-            if (inst.public_ip_address != None) and (inst.private_ip_address != None):
+            if (inst.private_ip_address == ip):
                 self.new_instance_ip = inst.public_ip_address
                 self.new_instance_private_ip = inst.private_ip_address
-                break;
+                break
 
     def key_gen(self):
         # False means make the key for real
         self.key_pair = self.ec2.create_key_pair(DryRun=False, KeyName=self.key_name)
-        if os.path.exists(slf.key_name + ".pem"):
-            os.chmod(self.key_name + ".pem", 0777)
-        f = open(self.key_name + ".pem", 'w')
+        if os.path.exists(self.key_name):
+            os.chmod(self.key_name, 0777)
+        f = open(self.key_name, 'w')
         f.write(self.key_pair.key_material)
         f.close()
         os.chmod(f.name, 0400)
@@ -115,30 +116,33 @@ class AmazonCloudFunctions:
     def get_port_number(self, interface_id, router_number):
         return 60000 + interface_id + router_number * 100
 
-    def cloud_shell(self):
+    def cloud_shell(self,config_file, name):
         # login as root in order to create the raw socket
-        os.system(
-            "xterm -e ssh -i GINI.pem -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip + " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=cloud_tunnel Router_2;exec bash'")
 
-    def local_shell(self):
         os.system(
-            "xterm -e cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=" + os.getcwd() + " --config=local_tunnel Router_1")
+            "xterm -hold -e ssh -X -i "+self.key_name+" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip + " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "+name+";exec bash'")
 
-    def create_tunnel(self):
+    def local_shell(self, config_file, name):
+        conf_path = config_file.strip("/grouter.conf")
+        print("DISPLAY=:0 xterm -hold -e /home/bernie/GINI_Cloud/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
+        os.system(
+            "DISPLAY=:0 xterm -hold -e /home/bernie/GINI_Cloud/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
+
+    def create_tunnel(self,cloud_config_file,tunnel_config_file,cloud_name,tunnel_name):
         # need to copy the yRouter to the cloud
         print("Creating tunnel")
         # copy the cloud configuration file to the instance
         os.system(
-            "scp -i " + self.key_name + ".pem -o StrictHostKeyChecking=no cloud_tunnel ubuntu@" + self.new_instance_ip + ":/home/ubuntu")
+            "scp -i " + self.key_name + " -o StrictHostKeyChecking=no "+cloud_config_file+" ubuntu@" + self.new_instance_ip + ":/home/ubuntu")
         # start the cloud router
         # Note you have to delete the files it creates on the cloud after if you want to run it again
-        print("attempting " + "xterm -e ssh -R " + str(self.get_port_number(0, 1)) + ":localhost:" + str(
+        print("attempting " + "xterm -e ssh -X -R " + str(self.get_port_number(0, 1)) + ":localhost:" + str(
             self.get_port_number(0,
-                                 1)) + " -i GINI.pem -o StrictHostKeyChecking=no ubuntu@" + self.new_instance_ip + " 'source ~/.profile; sudo -E yRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/home/ubuntu --config=cloud_tunnel Router_1;exec bash'")
+                                 1)) + " -i "+self.key_name+" -o StrictHostKeyChecking=no ubuntu@" + self.new_instance_ip + " 'source ~/.profile; sudo -E yRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/home/ubuntu --config=grouter.conf"+cloud_name+";exec bash'")
         # os.system("xterm -e ssh -R "+str(self.get_port_number(0, 1))+":localhost:"+str(self.get_port_number(0,1))+"-i GINI.pem -o StrictHostKeyChecking=no ubuntu@"+self.new_instance_ip+" 'source ~/.profile; sudo -E yRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/home/ubuntu --config=cloud_tunnel Router_1;exec bash'")
-        p1 = multiprocessing.Process(target=self.cloud_shell)
+        p1 = multiprocessing.Process(target=self.cloud_shell(cloud_config_file,cloud_name))
         p1.start()
-        p2 = multiprocessing.Process(target=self.local_shell)
+        p2 = multiprocessing.Process(target=self.local_shell(tunnel_config_file,tunnel_name))
         print("opening local router")
         p2.start()
 
@@ -162,7 +166,7 @@ class AmazonCloudFunctions:
         f.write(ifconfig_raw)
         # for some reason unable to get the default gateway ip address from boto3
         # have to do it this way
-        cloud_arp_table = os.popen('ssh -i GINI.pem ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
+        cloud_arp_table = os.popen('ssh -i '+self.key_name+' ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
         default_gateway = cloud_arp_table[cloud_arp_table.find("(") + 1:cloud_arp_table.find(")")]
         route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw " + default_gateway + "\n"
         f.write(route_raw)

@@ -125,6 +125,7 @@ class Server(QtCore.QObject):
         return self.timer
 
     def refresh(self):
+        return
         if not self.clientConnection:
             return
 

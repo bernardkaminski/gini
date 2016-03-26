@@ -11,7 +11,6 @@ import sys
 from urllib2 import urlopen
 
 from program import Program
-
 #import batch_ipcrm
 
 # set the program names
@@ -171,6 +170,7 @@ def createVWR(myGINI, options):
             else:
                 configOut.write("mov set node %d location 0 0 0\n" % (index + 1))
         configOut.write("echo -ne \"\\033]0;" + wrouter.name + "\\007\"")
+        configOut.write("\n")
         configOut.close()
 
         ### ------- execute ---------- ###
@@ -256,6 +256,19 @@ def createVR(myGxINI, options):
     switchDir = options.switchDir
     # create the main router directory
     makeDir(routerDir)
+    isCloudConfigWritten = False
+    isLocalTunConfWritten = False
+    s = AmazonCloudFunctions()
+    print("creating amazon object\n")
+    s.configure_aws("AKIAIM65WKOBI3B3ETKA","emIme22KJKEPwrNIVbZ4h+FLeUhDrwNgqKWt55su")#put keys here didnt want to commit them
+    #s.create_instance()
+    print("configered aws\n")
+    s.get_running_instance("172.31.44.62")
+    cloud_config_file=None
+    tunnel_config_file = None
+    cloud_name=None
+    tunnel_name=None
+    print("got running instances\n")
     for router in myGINI.vr:
         print "Starting Router %s...\t" % router.name,
         sys.stdout.flush()
@@ -279,42 +292,43 @@ def createVR(myGxINI, options):
             else:
                 configOut.write(getVRIFOutLine(nwIf, socketName))
         configOut.write("echo -ne \"\\033]0;" + router.name + "\\007\"")
+        configOut.write("\n")
         configOut.close()
         ### ------- execute ---------- ###
         # go to the router directory to execute the command
         oldDir = os.getcwd()
         if "Cloud" in router.name:
             #add to config file
-            s = AmazonCloudFunctions()
+            cloud_config_file=configFile
+            cloud_name=router.name
             for tunIF in router.tunIF:
-                getCloudIFOutLine(tunIF,s)
-                configOut = open(configFile,"w")
-                configOut.write()
+                configOut = open(configFile,"a")
+                configOut.write(getCloudIFOutLine(tunIF,s))
                 configOut.close()
 
             #start rpc server
-
-            
-            s.configure_aws("","")#put keys here didnt want to commit them
-            #os.chdir("/home/design/GINI_Cloud")#this is path to where connor clouds stuff is onmy machine
-            # start child process in the background because this server runs forever in a loop
-            # don't wait for process to complete and return exit code
-            #subprocess.Popen(['python','AmazonCloudServer.py'], stdout=subprocess.PIPE, stderr=subprocess.STDOUT)
-            # wait for server to go up
-            #time.sleep(3)
+            #os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
+            #subprocess.call(['python','AmazonCloudServer.py'])
+            #wait for server to go up
+            #time.sleep(1)
             #s = xmlrpclib.ServerProxy('http://localhost:8000')
-            #s.configure_aws(os.environ['AWS_KEY'],os.environ['AWS_SECRET']) # set keys as environment variables
-            s.configure_aws("","")#put keys here didnt want to commit them
-            s.create_instance()
-            s.create_tunnel()
+            isCloudConfigWritten = True
+            if(isLocalTunConfWritten):
+                s.create_tunnel(cloud_config_file,tunnel_config_file,cloud_name,tunnel_name)
 
-
+            #continue here check if we need to do anything else tony
             os.chdir(oldDir)
         elif("Tunnel" in router.name):
+            tunnel_config_file = configFile
+            tunnel_name = router.name
             for tunIF in router.tunIF:
-                configOut = open(configFile,"w")
-                configOut.write()
+                configOut = open(configFile,"a")
+                configOut.write(getLocalTunnelOutline(tunIF,s))
                 configOut.close()
+            isLocalTunConfWritten = True
+            if(isCloudConfigWritten):
+                s.create_tunnel(cloud_config_file,tunnel_config_file,cloud_name,tunnel_name)
+
 
         else:
             oldDir = os.getcwd()
@@ -601,26 +615,24 @@ def getCloudIFOutLine(nwIf,amazon):
     print("Trying to get public ip")
     local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
     print("Got public ip")
-    ifconfig = "ifconfig add"+nwIf.name +"-dstip "+local_ip+" -dstport 0 -addr"+ nwIf.ip+"-hwaddr"+ nwIf.nic+"\n"
+    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 0 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+"\n"#needs to be tun0
     for r in nwIf.routes:
-        route = "route add -dev"+ nwIf.name+"-net"+ r.dest + "-netmask"+ r.netmask+"\n"
-        route = "route add -dev tun0 -net 20.20.20.20 -netmask 255.255.255.255\n"
+        route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
     #raw socket commands for injecting packets into the kernel
 
     ifconfig_raw = "ifconfig add raw1 -addr "+amazon.get_private_ip()+"\n"
-    ifconfig_raw = "ifconfig add raw1 -addr "+self.new_instance_private_ip+"\n"
 
     #for some reason unable to get the default gateway ip address from boto3
     #have to do it this way
 
-    cloud_arp_table = os.popen('ssh -i GINI.pem ubuntu@'+amazon.amazon.get_ip()+" 'arp -a'").read()
+    cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
     route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
     return (ifconfig + route + ifconfig_raw+ route_raw)
 def getLocalTunnelOutline(nwIf,amazon):
-    ifconfig = "ifconfig add" +nwIf.name+ "-dstip " + amazon.get_ip() + " -dstport 0 -addr"+nwIf.ip+"-hwaddr"+nwIf.nic+"\n"
+    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 0 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+"\n"
     for r in nwIf.routes:
-        route = "route add -dev"+ nwIf.name+"-net"+ r.dest + "-netmask"+ r.netmask+"\n"
+        route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
     return (ifconfig+route)
 
 

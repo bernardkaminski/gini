@@ -254,10 +254,9 @@ class Compiler:
                 mapping = {"subnet":"network", "mac":"nic", "ipv4":"ip"}
 
                 self.writeInterface(router, interface, mapping)
+                self.output.write("</clotun>\n\n")
+            self.output.write("</vr>\n\n")
 
-                self.output.write("\t</netif>\n")
-
-            self.output.write("</clotun>\n\n")
 
     def autogen_router(self):
         """

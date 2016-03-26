@@ -240,6 +240,7 @@ class VR:
         "Initialize the VR class"
         self.name = vrName
         self.netIF = []
+        self.tunIF=[]
 
     def addNetIF(self, newIF):
         self.netIF.append(newIF)
