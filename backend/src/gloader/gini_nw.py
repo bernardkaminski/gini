@@ -1,4 +1,5 @@
 # file: gini_nw.py
+from ImImagePlugin import number
 
 import os
 import xml.dom.minidom
@@ -118,6 +119,7 @@ class GINI_NW:
         "Get router specification"
         for router in elements:
             newVR = VR(router.getAttribute("name"))
+            numberOfTun=0
             for para in router.childNodes:
                 if (para.nodeType == para.ELEMENT_NODE):
                     if (para.tagName.lower() == "cli"):
@@ -126,10 +128,12 @@ class GINI_NW:
                         newIF = self.getVRIF(para, len(newVR.netIF)+1)
                         newVR.addNetIF(newIF)
                     if (para.tagName.lower() == "loctun"):
-                        newIF = self.getTUNIF(para, len(newVR.netIF)+1)
+                        newIF = self.getTUNIF(para, numberOfTun+1)
+                        numberOfTun+=1
                         newVR.addTunIF(newIF)
                     if (para.tagName.lower() == "clotun"):
-                        newIF = self.getTUNIF(para, len(newVR.netIF)+1)
+                        newIF = self.getTUNIF(para, numberOfTun+1)
+                        numberOfTun+=1
                         newVR.addTunIF(newIF)
             self.vr.append(newVR)
         return True
