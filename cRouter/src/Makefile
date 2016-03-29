@@ -1,0 +1,23 @@
+CFLAGS = -c -DHAVE_GETOPT_LONG=1 -DHAVE_SNPRINTF=1 -DHAVE_VSSCANF=1 -DHAVE_PTHREAD_RWLOCK=1 -lslack -lpthread -lm -ldl
+CFLAGS+= -g
+LDFLAGS = -lslack -lpthread -lm -ldl
+
+SOURCES= arp.c classifier.c cli.c console.c ethernet.c filter.c fragment.c raw.c tun.c gnet.c grouter.c icmp.c info.c ip.c message.c mtu.c packetcore.c qdisc.c roundrobin.c routetable.c simplequeue.c tap.c tapio.c utils.c vpl.c wfq.c nat.c
+
+OBJECTS=$(SOURCES:.c=.o)
+EXECUTABLE=yrouter
+
+all: $(SOURCES) $(EXECUTABLE)
+
+$(EXECUTABLE): $(OBJECTS)
+	gcc $(OBJECTS) $(LDFLAGS) -o $@
+
+.c.o:
+	gcc $(CFLAGS) $< -o $@
+
+install:
+	cp yrouter /root/bin/yrouter
+	cp restart.sh /root/bin/restart_net
+	cp del_iface.sh /root/bin/del_iface
+clean:
+	rm -rf *.o *~ 
