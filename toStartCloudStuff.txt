@@ -1,0 +1,1 @@
+fisrt, copy GINI.PEM file to main gini folder, then make clean and make the contents in cRouter folder, Then connor, in gloader.py on line 266 is where you get the current running instance, change that ip to the instance you wanna test, and you should be good to go. 
