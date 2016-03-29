@@ -22,7 +22,7 @@ import multiprocessing
 class AmazonCloudFunctions:
     def __init__(self):
         self.key_pair = None
-        self.key_name = os.environ["GINI_HOME"]+"/GINI.pem"
+        self.key_name = os.environ["GINI_ROOT"]+"/GINI.pem"
         self.ec2 = None
         self.new_instance_ip = None  # just for debugging
         self.new_instance_private_ip = None
@@ -124,9 +124,9 @@ class AmazonCloudFunctions:
 
     def local_shell(self, config_file, name):
         conf_path = config_file.strip("/grouter.conf")
-        print("DISPLAY=:0 xterm -hold -e /home/bernie/GINI_Cloud/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
+        print("DISPLAY=:0 xterm -hold -e "+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
         os.system(
-            "DISPLAY=:0 xterm -hold -e /home/bernie/GINI_Cloud/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
+            "DISPLAY=:0 xterm -hold -e "+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
 
     def create_tunnel(self,cloud_config_file,tunnel_config_file,cloud_name,tunnel_name):
         # need to copy the yRouter to the cloud
