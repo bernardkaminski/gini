@@ -70,18 +70,18 @@ void *toRawDev(void *arg)
 		In this case we want to apply a SNAT, to make the packet seem as if it has come from the cRouter 
 		so that Amazon machines will be able to respond (recognize the address). Note that the reverse
 		NAT operation is performed in ip.c*/
-		if(inpkt->data.header.prot != htons(ARP_PROTOCOL) && !(tmp[0] == '1' && tmp[1] == '7' && tmp[2] == '2')) {
+		/*if(inpkt->data.header.prot != htons(ARP_PROTOCOL) && !(tmp[0] == '1' && tmp[1] == '7' && tmp[2] == '2')) {
 			//printf("\n\n TRYING TO PING AMAZON CLOUD\n");				
 			//printGPacket(inpkt, 3, "CONNOR PACKET");
 			ip_packet_t *ipkt = (ip_packet_t *)(inpkt->data.data);
 			ipkt->ip_hdr_len = 5;                                  // no IP header options!!
 			icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + ipkt->ip_hdr_len*4);
 			printf("\n\nICMP ID: %d\n", icmphdr->un.echo.id); 
-			/*The IP address given to the SNAT function is the private ip address of the 
-			Amazon instance that is running the cRouter in reverse */
+			The IP address given to the SNAT function is the private ip address of the 
+			Amazon instance that is running the cRouter in reverse 
 			applySNAT("62.44.31.172", (ip_packet_t*)inpkt->data.data, icmphdr->un.echo.id);
 			printNAT();	
-		}
+		}*/
 		/* send IP packet or ARP reply */
 		if (inpkt->data.header.prot == htons(ARP_PROTOCOL))
 		{

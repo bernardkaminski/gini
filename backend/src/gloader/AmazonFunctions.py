@@ -120,7 +120,7 @@ class AmazonCloudFunctions:
         # login as root in order to create the raw socket
 
         os.system(
-            "xterm -hold -e ssh -X -i "+self.key_name+" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip + " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "+name+";exec bash'")
+            "DISPLAY=:0 xterm -hold -e ssh -X -i "+self.key_name+" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip + " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "+name+";exec bash'")
 
     def local_shell(self, config_file, name):
         conf_path = config_file.strip("/grouter.conf")

@@ -128,11 +128,11 @@ class GINI_NW:
                         newIF = self.getVRIF(para, len(newVR.netIF)+1)
                         newVR.addNetIF(newIF)
                     if (para.tagName.lower() == "loctun"):
-                        newIF = self.getTUNIF(para, numberOfTun+1)
+                        newIF = self.getTUNIF(para, numberOfTun)
                         numberOfTun+=1
                         newVR.addTunIF(newIF)
                     if (para.tagName.lower() == "clotun"):
-                        newIF = self.getTUNIF(para, numberOfTun+1)
+                        newIF = self.getTUNIF(para, numberOfTun)
                         numberOfTun+=1
                         newVR.addTunIF(newIF)
             self.vr.append(newVR)
