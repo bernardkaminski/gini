@@ -636,13 +636,18 @@ def getCloudIFOutLine(nwIf,amazon):
     route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
     return (ifconfig + route + ifconfig_raw+ route_raw)
 def getLocalTunnelOutline(nwIf,amazon):
+    if(amazon == None):
+        print("Amazon instance not running!")
+        return
     ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 0 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+"\n"
     cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
+    default_gateway_mac = cloud_arp_table.split()[3]
     for r in nwIf.routes:
         route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
         route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
-    return (ifconfig+route)
+    arp = "arp add -ip "+default_gateway+" -mac "+default_gateway_mac
+    return (ifconfig+route+arp)
 
 
 def getVMIFOutLine(nwIf, socketName, name):

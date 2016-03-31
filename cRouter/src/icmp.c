@@ -51,11 +51,13 @@ void ICMPProcessPacket(gpacket_t *in_pkt)
 			break;
 		}	*/
 		verbose(1, "[ICMPProcessPacket]:: ICMP processing for ECHO reply");
-		ICMPProcessEchoRequest(in_pkt);
+		//ICMPProcessEchoRequest(in_pkt);
 		ICMPProcessEchoReply(in_pkt);
 		break;
 
 	case ICMP_REDIRECT:
+		ICMPProcessEchoReply(in_pkt);
+		break;
 	case ICMP_SOURCE_QUENCH:
 	case ICMP_TIMESTAMP:
 	case ICMP_TIMESTAMPREPLY:
