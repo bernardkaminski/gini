@@ -42,24 +42,33 @@ void IPInit()
 void IPIncomingPacket(gpacket_t *in_pkt)
 {
 	char tmpbuf[MAX_TMPBUF_LEN];
+	
 	// get a pointer to the IP packet
         ip_packet_t *ip_pkt = (ip_packet_t *)&in_pkt->data.data;
 	uchar bcast_ip[] = IP_BCAST_ADDR;
 	
+	// Obtain icmp header (for the purposes of Amazon NAT traversal)
 	int iphdrlen = ip_pkt->ip_hdr_len *4;
 	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ip_pkt + iphdrlen);
-	
-	/*If both the ICMP ECHO ID and the IP address are in the NAT table
+
+	// Obtain source IP address (also for the purpose of Amazon NAT traversal)
+/*	char tmp[MAX_TMPBUF_LEN], tmp2[MAX_TMPBUF_LEN];
+	gNtohl(tmp, ip_pkt->ip_src); // The raw ip src will have reversed byte order, this function switches it back
+	IP2Dot(tmp2, tmp); // Now tmp2 contains the source IP address in the correct byte order (not network byte order)
+
+	*If both the ICMP ECHO ID and the IP address are in the NAT table
 	(the NAT table used for traversing between local and amazon GINI networks), 
-	then undo the SNAT procedure that was done on the way out of this router. 
+	then undo the SNAT procedure that was done on the way out of this router (in raw.c). 
 	For example, pinging a machine on the amazon network from a local gini network
 	would result in an SNAT applied at the cRouter, making the packet appear as if it came
-	from the cRouter itself. Now when a ECHO REPLY comes back, we undo that SNAT here.*/
-	if(applyDNAT(ip_pkt, icmphdr->un.echo.id)!=-1){
+	from the cRouter itself. Now when a ECHO REPLY comes back, we undo that SNAT here.
+	We only want to apply the DNAT on the reverse traversal of the NAT, i.e. if the source IP address prefix
+	is not 192 (local gini network).
+	if(!(tmp2[0]=='1' && tmp2[1]=='9' && tmp2[2] =='2') && (applyDNAT(ip_pkt, icmphdr->un.echo.id) != -1)){
 		//DNAT was applied, pass on the packet
-		//printNAT();
-		printf("PACKET FOR DNAT\n");	
 	}			       	
+	
+*/	
 	// Is this IP packet for me??
 	if (IPCheckPacket4Me(in_pkt))
 	{
@@ -73,6 +82,7 @@ void IPIncomingPacket(gpacket_t *in_pkt)
 		IPProcessBcastPacket(in_pkt);
 	} else
 	{
+
 		// Destinated to someone else
 		verbose(2, "[IPIncomingPacket]:: got IP packet destined to someone else");
 		IPProcessForwardingPacket(in_pkt);

@@ -43,11 +43,10 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
+
 extern pktcore_t *pcore;
 extern classlist_t *classifier;
 extern filtertab_t *filter;
-
-
 extern router_config rconfig;
 
 void *toRawDev(void *arg)
@@ -62,26 +61,33 @@ void *toRawDev(void *arg)
 	// find the outgoing interface and device...
 	if ((iface = findInterface(inpkt->frame.dst_interface)) != NULL)
 	{
-		char tmp[40];
-		memset(tmp, 0, sizeof(tmp));
-		IP2Dot(tmp, inpkt->frame.src_ip_addr);
+		
 		/* The Amazon network has the prefix 172, so if a packet is sent to the raw interface and it does
 		not begin with that prefix, we know that the packet has come from the local gini network instead.
 		In this case we want to apply a SNAT, to make the packet seem as if it has come from the cRouter 
 		so that Amazon machines will be able to respond (recognize the address). Note that the reverse
-		NAT operation is performed in ip.c*/
-		/*if(inpkt->data.header.prot != htons(ARP_PROTOCOL) && !(tmp[0] == '1' && tmp[1] == '7' && tmp[2] == '2')) {
-			//printf("\n\n TRYING TO PING AMAZON CLOUD\n");				
-			//printGPacket(inpkt, 3, "CONNOR PACKET");
-			ip_packet_t *ipkt = (ip_packet_t *)(inpkt->data.data);
-			ipkt->ip_hdr_len = 5;                                  // no IP header options!!
+		NAT operation is performed in ip.c
+		
+		char tmp[MAX_TMPBUF_LEN], tmp2[MAX_TMPBUF_LEN];
+		ip_packet_t *ipkt = (ip_packet_t *)(inpkt->data.data);
+		gNtohl(tmp, ipkt->ip_src); //the raw ip src will have reversed byte order, this function switches it back
+		IP2Dot(tmp2, tmp);
+		
+		if(inpkt->data.header.prot != htons(ARP_PROTOCOL) && !(tmp2[0] == '1' && tmp2[1] == '7' && tmp2[2] == '2')) {
+			ipkt->ip_hdr_len = 5;                                 
 			icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + ipkt->ip_hdr_len*4);
-			printf("\n\nICMP ID: %d\n", icmphdr->un.echo.id); 
-			The IP address given to the SNAT function is the private ip address of the 
+			/The IP address given to the SNAT function is the private ip address of the 
 			Amazon instance that is running the cRouter in reverse 
-			applySNAT("62.44.31.172", (ip_packet_t*)inpkt->data.data, icmphdr->un.echo.id);
+			char tmp3[MAX_TMPBUF_LEN];
+			memset(tmp3, 0, sizeof(tmp3));
+			char *eth0ip = getIp();
+			if(eth0ip != NULL){
+				toNetworkByteOrder(eth0ip, tmp3);				
+			}
+			applySNAT(tmp3, (ip_packet_t*)inpkt->data.data, icmphdr->un.echo.id);
 			printNAT();	
-		}*/
+		}
+*/
 		/* send IP packet or ARP reply */
 		if (inpkt->data.header.prot == htons(ARP_PROTOCOL))
 		{

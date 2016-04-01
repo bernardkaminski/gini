@@ -621,7 +621,7 @@ def getCloudIFOutLine(nwIf,amazon):
     print("Trying to get public ip")
     local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
     print("Got public ip")
-    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 0 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+"\n"#needs to be tun0
+    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 0 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 1\n"#needs to be tun0
     for r in nwIf.routes:
         route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
     #raw socket commands for injecting packets into the kernel
@@ -639,7 +639,7 @@ def getLocalTunnelOutline(nwIf,amazon):
     if(amazon == None):
         print("Amazon instance not running!")
         return
-    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 0 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+"\n"
+    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 0 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+" -s 0\n"
     cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
     default_gateway_mac = cloud_arp_table.split()[3]

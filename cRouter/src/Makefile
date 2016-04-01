@@ -2,7 +2,7 @@ CFLAGS = -c -DHAVE_GETOPT_LONG=1 -DHAVE_SNPRINTF=1 -DHAVE_VSSCANF=1 -DHAVE_PTHRE
 CFLAGS+= -g
 LDFLAGS = -lslack -lpthread -lm -ldl
 
-SOURCES= arp.c classifier.c cli.c console.c ethernet.c filter.c fragment.c raw.c tun.c gnet.c grouter.c icmp.c info.c ip.c message.c mtu.c packetcore.c qdisc.c roundrobin.c routetable.c simplequeue.c tap.c tapio.c utils.c vpl.c wfq.c nat.c
+SOURCES= arp.c classifier.c cli.c console.c ethernet.c filter.c fragment.c raw.c tun.c ttun.c gnet.c grouter.c icmp.c info.c ip.c message.c mtu.c packetcore.c qdisc.c roundrobin.c routetable.c simplequeue.c tap.c tapio.c utils.c vpl.c wfq.c nat.c
 
 OBJECTS=$(SOURCES:.c=.o)
 EXECUTABLE=yrouter

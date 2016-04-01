@@ -229,7 +229,7 @@ class GINI_NW:
 
     def getTUNIF(self, elem, index):
         "get virtual router network interface"
-        ifName =  "tun%d" % index
+        ifName =  "ttun%d" % index
         myIF = VRInterface(ifName)
         for para in elem.childNodes:
             if (para.nodeType == para.ELEMENT_NODE):

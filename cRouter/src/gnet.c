@@ -18,6 +18,7 @@
 #include "tap.h"
 #include "tapio.h"
 #include "tun.h"
+#include "ttun.h"
 #include "raw.h"
 #include "protocols.h"
 #include <slack/err.h>
@@ -466,7 +467,7 @@ interface_t *GNETMakeTunInterface(char *device, uchar *mac_addr, uchar *nw_addr,
     int iface_id;
     char tmpbuf[MAX_TMPBUF_LEN];
 
-    verbose(2, "[GNETMakeTunInterface]:: making Interface for [%s] with MAC %s and IP %s",
+    verbose(2, "[GNETMakeTunInterface]:: making UDP Interface for [%s] with MAC %s and IP %s",
 	device, MAC2Colon(tmpbuf, mac_addr), IP2Dot((tmpbuf+20), nw_addr));
 
     iface_id = gAtoi(device);
@@ -488,6 +489,47 @@ interface_t *GNETMakeTunInterface(char *device, uchar *mac_addr, uchar *nw_addr,
     if(vcon == NULL)
     {
         verbose(1, "[GNETMakeTunInterface]:: unable to connect to %s", device);
+        return NULL;
+    }
+
+    iface->iface_fd = vcon->data;
+    iface->vpl_data = vcon;
+    
+    upThisInterface(iface);
+    return iface;
+}
+
+interface_t *GNETMakeTtunInterface(char *device, uchar *mac_addr, uchar *nw_addr,
+                                  uchar* dst_ip, short int dst_port, short int is_server)
+{
+	vpl_data_t *vcon;
+    interface_t *iface;
+    int iface_id;
+    char tmpbuf[MAX_TMPBUF_LEN];
+
+    verbose(2, "[GNETMakeTtunInterface]:: making TCP Interface for [%s] with MAC %s and IP %s",
+	device, MAC2Colon(tmpbuf, mac_addr), IP2Dot((tmpbuf+20), nw_addr));
+
+    iface_id = gAtoi(device);
+        
+    if (findInterface(iface_id) != NULL)
+    {
+	verbose(1, "[GNETMakeTunInterface]:: device %s already defined.. ", device);
+	return NULL;
+    }
+    
+    // setup the interface..
+    iface = newInterfaceStructure(device, device,
+                                  mac_addr, nw_addr, MAX_MTU);
+    
+    verbose(2, "[GNETMakeTtunInterface]:: trying to connect to %s..", device);
+    
+    //MODIFY PORT MAPPING
+    vcon = ttun_connect(dst_port, NULL, dst_port, dst_ip, is_server); 
+    
+    if(vcon == NULL)
+    {
+        verbose(1, "[GNETMakeTtunInterface]:: unable to connect to %s", device);
         return NULL;
     }
 

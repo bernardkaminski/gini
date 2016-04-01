@@ -373,7 +373,7 @@ void ifconfigCmd()
     char dev_name[MAX_DNAME_LEN], con_sock[MAX_NAME_LEN], dev_type[MAX_NAME_LEN];
     uchar mac_addr[6], ip_addr[4], gw_addr[4], dst_ip[4];
     int mtu, interface, mode;
-    short int dst_port;
+    short int dst_port, is_server;
     
     // set default values for optional parameters
     bzero(gw_addr, 4);
@@ -413,13 +413,19 @@ void ifconfigCmd()
         {
             GET_NEXT_PARAMETER("-socket", "ifconfig:: missing -socket spec ..");
             strcpy(con_sock, next_tok);
-        } else if(strcmp(dev_type, "tun") == 0) 
+        } else if(strcmp(dev_type, "tun") == 0 || strcmp(dev_type, "ttun") == 0) 
         {
             GET_NEXT_PARAMETER("-dstip", "ifconfig:: missing -dstip spec ..");
             Dot2IP(next_tok, dst_ip);  
             
             GET_NEXT_PARAMETER("-dstport", "ifconfig:: missing -dstport spec ..");
             dst_port = (short int)atoi(next_tok);
+            if(strcmp(dev_type, "ttun") == 0){
+            	if(dst_port < 10000){
+            		error("Must enter port number >10,000 for TCP tunnel");
+            		return;
+            	}
+            }
         } 
         
         GET_NEXT_PARAMETER("-addr", "ifconfig:: missing -addr spec ..");
@@ -428,6 +434,11 @@ void ifconfigCmd()
         if(strcmp(dev_type, "raw") != 0) {
             GET_NEXT_PARAMETER("-hwaddr", "ifconfig:: missing -hwaddr spec ..");
             Colon2MAC(next_tok, mac_addr);
+        }
+
+        if(strcmp(dev_type, "ttun") == 0){
+        	GET_NEXT_PARAMETER("-s", "ifconfig:: missing -s spec, enter 1 for server, 0 for client...");
+        	is_server  = (short int)atoi(next_tok);
         }
         
         while ((next_tok = strtok(NULL, " \n")) != NULL) 
@@ -449,6 +460,8 @@ void ifconfigCmd()
             iface = GNETMakeTapInterface(dev_name, mac_addr, ip_addr);
         else if (strcmp(dev_type, "tun") == 0)
             iface = GNETMakeTunInterface(dev_name, mac_addr, ip_addr, dst_ip, dst_port);
+        else if (strcmp(dev_type, "ttun") == 0)
+        	iface = GNETMakeTtunInterface(dev_name, mac_addr, ip_addr, dst_ip, dst_port, is_server);
         else if (strcmp(dev_type, "raw") == 0)
             iface = GNETMakeRawInterface(dev_name, ip_addr);
             
@@ -619,7 +632,7 @@ void arpCmd()
 				next_tok = strtok(NULL, " \n");
 				Dot2IP(next_tok, ip_addr);
 			}
-		} if ((next_tok = strtok(NULL, " \n")) != NULL)
+			} else if ((next_tok = strtok(NULL, " \n")) != NULL)
             {
 				if (!strcmp("-mac", next_tok))
 				{
