@@ -419,7 +419,9 @@ void ifconfigCmd()
             Dot2IP(next_tok, dst_ip);  
             
             GET_NEXT_PARAMETER("-dstport", "ifconfig:: missing -dstport spec ..");
-            dst_port = (short int)atoi(next_tok);
+            printf("Tok %s\n", next_tok);
+	    dst_port = (short int)atoi(next_tok);
+	    printf("Entered dstport %d\n", dst_port);
             if(strcmp(dev_type, "ttun") == 0){
             	if(dst_port < 10000){
             		error("Must enter port number >10,000 for TCP tunnel");

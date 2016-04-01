@@ -129,7 +129,7 @@ class AmazonCloudFunctions:
             "DISPLAY=:0 xterm -hold -e "+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+name)
 
     def create_tunnel(self,cloud_config_file,tunnel_config_file,cloud_name,tunnel_name):
-        # need to copy the yRouter to the cloud
+       # need to copy the yRouter to the cloud
         print("Creating tunnel")
         # copy the cloud configuration file to the instance
         os.system(
@@ -142,7 +142,6 @@ class AmazonCloudFunctions:
         # os.system("xterm -e ssh -R "+str(self.get_port_number(0, 1))+":localhost:"+str(self.get_port_number(0,1))+"-i GINI.pem -o StrictHostKeyChecking=no ubuntu@"+self.new_instance_ip+" 'source ~/.profile; sudo -E yRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/home/ubuntu --config=cloud_tunnel Router_1;exec bash'")
         #p1 = multiprocessing.Process(target=self.cloud_shell(cloud_config_file,cloud_name))
         #p1.start()
-
         p1 = subprocess.Popen("export DISPLAY=:0; xterm -e ssh -X -i "+self.key_name+
             " -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip + 
             " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "
@@ -152,7 +151,6 @@ class AmazonCloudFunctions:
         #p2 = multiprocessing.Process(target=self.local_shell(tunnel_config_file,tunnel_name))
         print("opening local router")
         #p2.start()
-        
 
         # Note if you get "unable to connect to tun0" try a different Router number i.e. Router_2 instead
         # 60000+interface_id+router_number*100

@@ -33,14 +33,13 @@
 #include <stdlib.h>
 #include <readline/readline.h>
 #include <readline/history.h>
-#include <net/if.h>
+
 
 Map *cli_map;
 Mapper *cli_mapper;
 static char *cur_line = (char *)NULL;       // static variable for holding the line
 
-FILE *rl_instream;
-
+extern FILE *rl_instream;
 extern router_config rconfig;
 
 extern route_entry_t route_tbl[MAX_ROUTES];
@@ -92,8 +91,8 @@ int CLIInit(router_config *rarg)
 	registerCLI("spolicy", spolicyCmd, SHELP_SPOLICY, USAGE_SPOLICY, LHELP_SPOLICY); // Check
 	registerCLI("class", classCmd, SHELP_CLASS, USAGE_CLASS, LHELP_CLASS);
 	registerCLI("filter", filterCmd, SHELP_FILTER, USAGE_FILTER, LHELP_FILTER);
-	
-	rl_instream = stdin;
+
+
 	if (rarg->config_dir != NULL)
 		chdir(rarg->config_dir);                  // change to the configuration directory
 	if (rarg->config_file != NULL)
@@ -191,12 +190,9 @@ void CLIPrintHelp() {
  * Read a string, and return a pointer to it.
  * Returns NULL on EOF.
  */
-
 char *rlGets(int online)
 {
 	char prompt[MAX_TMPBUF_LEN];
-	size_t clen = 0;
-	int bytesread;
 
 	if (cur_line != NULL)
 	{
@@ -209,20 +205,15 @@ char *rlGets(int online)
 	do
 	{
 		// Get a line from the user.
-      		printf("%s ", prompt);
-        	bytesread = getline(&cur_line, &clen, rl_instream);
-
-	} while (online && (bytesread == 1));
+		cur_line = readline(prompt);
+	} while (online && (cur_line == NULL));
 
 	// If the line has any text in it,
 	// save it on the history.
-//	if (cur_line && *cur_line)
-//		add_history (cur_line);
+	if (cur_line && *cur_line)
+		add_history (cur_line);
 
-	if (bytesread == -1) 
-		return NULL;
-	else
-		return (cur_line);
+	return (cur_line);
 }
 
 
@@ -359,7 +350,6 @@ int getDevType(char *str)
  * ifconfig add eth1 -socket socketfile -addr IP_addr  -hwaddr MAC [-gateway GW] [-mtu N]
  * ifconfig add tap0 -device dev_location -addr IP_addr -hwaddr MAC
  * ifconfig add tun0 -dstip dst_ip -dstport portnum -addr IP_addr -hwaddr MAC
- * ifconfig add raw0 -addr IP_addr
  * ifconfig del eth0|tap0
  * ifconfig show [brief|verbose]
  * ifconfig up eth0|tap0
@@ -368,168 +358,151 @@ int getDevType(char *str)
  */
 void ifconfigCmd()
 {
-    char *next_tok;
-    interface_t *iface;
-    char dev_name[MAX_DNAME_LEN], con_sock[MAX_NAME_LEN], dev_type[MAX_NAME_LEN];
-    uchar mac_addr[6], ip_addr[4], gw_addr[4], dst_ip[4];
-    int mtu, interface, mode;
-    short int dst_port, is_server;
-    
-    // set default values for optional parameters
-    bzero(gw_addr, 4);
-    mtu = DEFAULT_MTU;
-    mode = NORMAL_LISTING;
+	char *next_tok;
+	interface_t *iface;
+	char dev_name[MAX_DNAME_LEN], con_sock[MAX_NAME_LEN], dev_type[MAX_NAME_LEN];
+	uchar mac_addr[6], ip_addr[4], gw_addr[4], dst_ip[4];
+	int mtu, interface, mode;
+	short int dst_port;
 
-    // we have already matched ifconfig... now parsing rest of the parameters.
-    next_tok = strtok(NULL, " \n");
+	// set default values for optional parameters
+	bzero(gw_addr, 4);
+	mtu = DEFAULT_MTU;
+	mode = NORMAL_LISTING;
 
-    if (next_tok == NULL)
-    {
-        printf("[ifconfigCmd]:: missing action parameter.. type help ifconfig for usage.\n");
-        return;
-    }
-    if (!strcmp(next_tok, "add"))
-    {
-       
-        next_tok = strtok(NULL, " \n");
+	// we have already matched ifconfig... now parsing rest of the parameters.
+	next_tok = strtok(NULL, " \n");
+
+	if (next_tok == NULL)
+	{
+		printf("[ifconfigCmd]:: missing action parameter.. type help ifconfig for usage.\n");
+		return;
+	}
+	if (!strcmp(next_tok, "add"))
+	{
+
+		next_tok = strtok(NULL, " \n");
         
-        if ( (next_tok == NULL) || (findDeviceDriver(next_tok) == NULL) ) 
-        {
-            printf("ifconfig:: missing or invalid interface spec ..\n");
-            return;
-        }
-        
-        strcpy(dev_name, next_tok);
-        sscanf(dev_name, "%[a-z]", dev_type);
-        interface = gAtoi(dev_name);
+		if ( (next_tok == NULL) || (findDeviceDriver(next_tok) == NULL) ) 
+		{
+			printf("ifconfig:: missing or invalid interface spec ..\n");
+			return;
+		}		
 
-        if ((interface == 0) && (strcmp(dev_type, "eth") == 0))
-        {
-            printf("[ifconfigCmd]:: device number 0 is reserved for tap - start from 1\n");
-            return;
-        }
+		strcpy(dev_name, next_tok);
+		sscanf(dev_name, "%[a-z]", dev_type);
+		interface = gAtoi(dev_name);
 
-        if (strcmp(dev_type, "eth") == 0)
-        {
-            GET_NEXT_PARAMETER("-socket", "ifconfig:: missing -socket spec ..");
-            strcpy(con_sock, next_tok);
-        } else if(strcmp(dev_type, "tun") == 0 || strcmp(dev_type, "ttun") == 0) 
-        {
-            GET_NEXT_PARAMETER("-dstip", "ifconfig:: missing -dstip spec ..");
-            Dot2IP(next_tok, dst_ip);  
-            
-            GET_NEXT_PARAMETER("-dstport", "ifconfig:: missing -dstport spec ..");
-            dst_port = (short int)atoi(next_tok);
-            if(strcmp(dev_type, "ttun") == 0){
-            	if(dst_port < 10000){
-            		error("Must enter port number >10,000 for TCP tunnel");
-            		return;
-            	}
-            }
-        } 
-        
-        GET_NEXT_PARAMETER("-addr", "ifconfig:: missing -addr spec ..");
-        Dot2IP(next_tok, ip_addr);
-        
-        if(strcmp(dev_type, "raw") != 0) {
-            GET_NEXT_PARAMETER("-hwaddr", "ifconfig:: missing -hwaddr spec ..");
-            Colon2MAC(next_tok, mac_addr);
-        }
+		if ((interface == 0) && (strcmp(dev_type, "eth") == 0))
+		{
+			printf("[ifconfigCmd]:: device number 0 is reserved for tap - start from 1\n");
+			return;
+		}
 
-        if(strcmp(dev_type, "ttun") == 0){
-        	GET_NEXT_PARAMETER("-s", "ifconfig:: missing -s spec, enter 1 for server, 0 for client...");
-        	is_server  = (short int)atoi(next_tok);
-        }
-        
-        while ((next_tok = strtok(NULL, " \n")) != NULL) 
-        {
-            if (!strcmp("-gateway", next_tok))
-            {
-                next_tok = strtok(NULL, " \n");
-                Dot2IP(next_tok, gw_addr);
-            } else if (!strcmp("-mtu", next_tok))
-            {
-                next_tok = strtok(NULL, " \n");
-                mtu = atoi(next_tok);
-            }
-        }
-        
-        if (strcmp(dev_type, "eth") == 0)
-            iface = GNETMakeEthInterface(con_sock, dev_name, mac_addr, ip_addr, mtu, 0);
-        else if (strcmp(dev_type, "tap") == 0)
-            iface = GNETMakeTapInterface(dev_name, mac_addr, ip_addr);
-        else if (strcmp(dev_type, "tun") == 0)
-            iface = GNETMakeTunInterface(dev_name, mac_addr, ip_addr, dst_ip, dst_port);
-        else if (strcmp(dev_type, "ttun") == 0)
-        	iface = GNETMakeTtunInterface(dev_name, mac_addr, ip_addr, dst_ip, dst_port, is_server);
-        else if (strcmp(dev_type, "raw") == 0)
-            iface = GNETMakeRawInterface(dev_name, ip_addr);
-            
-        
-        if (iface != NULL)
-        {
-            verbose(2, "[configureInterfaces]:: Inserting the definition in the interface table ");
-            GNETInsertInterface(iface);
-            addMTUEntry(MTU_tbl, iface->interface_id, iface->device_mtu, iface->ip_addr);
-            // for tap0 interface the MTU value cannot be changed. should we allow change?
-        }
-    }
-    else if (!strcmp(next_tok, "del"))
-    {
-        GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
-        strcpy(dev_name, next_tok);
-        interface = gAtoi(next_tok);
-        destroyInterfaceByIndex(interface);
-        deleteMTUEntry(interface);
-    }
-    else if (!strcmp(next_tok, "up"))
-    {
-        GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
-        strcpy(dev_name, next_tok);
-        interface = gAtoi(next_tok);
-        upInterface(interface);
+		if (strcmp(dev_type, "eth") == 0)
+		{
+			GET_NEXT_PARAMETER("-socket", "ifconfig:: missing -socket spec ..");
+			strcpy(con_sock, next_tok);
+		} else if(strcmp(dev_type, "tun") == 0)
+		{
+			GET_NEXT_PARAMETER("-dstip", "ifconfig:: missing -dstip spec ..");
+			Dot2IP(next_tok, dst_ip);  
+			GET_NEXT_PARAMETER("-dstport", "ifconfig:: missing -dstport spec ..");
+			dst_port = (short int)atoi(next_tok);
+		}
 
-    }
-    else if (!strcmp(next_tok, "down"))
-    {
-        GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
-        strcpy(dev_name, next_tok);
-        interface = gAtoi(next_tok);
-        downInterface(interface);
-    }
-    else if (!strcmp(next_tok, "mod"))
-    {
-        GET_THIS_PARAMETER("eth", "ifconfig:: missing interface spec ..");
-        strcpy(dev_name, next_tok);
-        interface = gAtoi(next_tok);
+		GET_NEXT_PARAMETER("-addr", "ifconfig:: missing -addr spec ..");
+		Dot2IP(next_tok, ip_addr);
 
-        while ((next_tok = strtok(NULL, " \n")) != NULL)
-                if (!strcmp("-gateway", next_tok))
-                {
-                        next_tok = strtok(NULL, " \n");
-                        strcpy(gw_addr, next_tok);
-                } else if (!strcmp("-mtu", next_tok))
-                {
-                        next_tok = strtok(NULL, " \n");
-                        mtu = atoi(next_tok);
-                }
+		GET_NEXT_PARAMETER("-hwaddr", "ifconfig:: missing -hwaddr spec ..");
+		Colon2MAC(next_tok, mac_addr);
 
-        changeInterfaceMTU(interface, mtu);
-    }
-    else if (!strcmp(next_tok, "show"))
-    {
-        if ((next_tok = strtok(NULL, " \n")) != NULL)
-        {
-                if (strstr(next_tok, "bri") != NULL)
-                        mode = BRIEF_LISTING;
-                else if (strstr(next_tok, "verb") != NULL)
-                        mode = VERBOSE_LISTING;
-        } else
-                mode = NORMAL_LISTING;
+		while ((next_tok = strtok(NULL, " \n")) != NULL)
+			if (!strcmp("-gateway", next_tok))
+			{
+				next_tok = strtok(NULL, " \n");
+				Dot2IP(next_tok, gw_addr);
+			} else if (!strcmp("-mtu", next_tok))
+			{
+				next_tok = strtok(NULL, " \n");
+				mtu = atoi(next_tok);
+			}
 
-        printInterfaces(mode);
-    }
-    return;
+		if (strcmp(dev_type, "eth") == 0)
+			iface = GNETMakeEthInterface(con_sock, dev_name, mac_addr, ip_addr, mtu, 0);
+		else if (strcmp(dev_type, "tap") == 0)
+			iface = GNETMakeTapInterface(dev_name, mac_addr, ip_addr);
+		else if (strcmp(dev_type, "tun") == 0)
+			iface = GNETMakeTunInterface(dev_name, mac_addr, ip_addr, dst_ip, dst_port);
+		else {
+			printf("[ifconfigCmd]:: Unkown device type %s\n", dev_type);
+			return;
+		}
+
+		if (iface != NULL)
+		{
+			verbose(2, "[configureInterfaces]:: Inserting the definition in the interface table ");
+			GNETInsertInterface(iface);
+			addMTUEntry(MTU_tbl, iface->interface_id, iface->device_mtu, iface->ip_addr);
+			// for tap0 interface the MTU value cannot be changed. should we allow change?
+		}
+	}
+	else if (!strcmp(next_tok, "del"))
+	{
+		GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
+		strcpy(dev_name, next_tok);
+		interface = gAtoi(next_tok);
+		destroyInterfaceByIndex(interface);
+		deleteMTUEntry(interface);
+	}
+	else if (!strcmp(next_tok, "up"))
+	{
+		GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
+		strcpy(dev_name, next_tok);
+		interface = gAtoi(next_tok);
+		upInterface(interface);
+
+	}
+	else if (!strcmp(next_tok, "down"))
+	{
+		GET_THIS_OR_THIS_PARAMETER("eth", "tap", "ifconfig:: missing interface spec ..");
+		strcpy(dev_name, next_tok);
+		interface = gAtoi(next_tok);
+		downInterface(interface);
+	}
+	else if (!strcmp(next_tok, "mod"))
+	{
+		GET_THIS_PARAMETER("eth", "ifconfig:: missing interface spec ..");
+		strcpy(dev_name, next_tok);
+		interface = gAtoi(next_tok);
+
+		while ((next_tok = strtok(NULL, " \n")) != NULL)
+			if (!strcmp("-gateway", next_tok))
+			{
+				next_tok = strtok(NULL, " \n");
+				strcpy(gw_addr, next_tok);
+			} else if (!strcmp("-mtu", next_tok))
+			{
+				next_tok = strtok(NULL, " \n");
+				mtu = atoi(next_tok);
+			}
+
+		changeInterfaceMTU(interface, mtu);
+	}
+	else if (!strcmp(next_tok, "show"))
+	{
+		if ((next_tok = strtok(NULL, " \n")) != NULL)
+		{
+			if (strstr(next_tok, "bri") != NULL)
+				mode = BRIEF_LISTING;
+			else if (strstr(next_tok, "verb") != NULL)
+				mode = VERBOSE_LISTING;
+		} else
+			mode = NORMAL_LISTING;
+
+		printInterfaces(mode);
+	}
+	return;
 }
 
 
@@ -940,7 +913,7 @@ void setCmd()
 			else
 				verbose(1, "[setCmd]:: ERROR!! level should be in [0..6] \n");
 		} else
-			printf("\nVerbose level: %ld \n", (long int)prog_verbosity_level());
+			printf("\nVerbose level: %ld \n", prog_verbosity_level());
 	} else if (!strcmp(next_tok, "raw-times"))
 	{
 		if ((next_tok = strtok(NULL, " \n")) != NULL)
@@ -1056,7 +1029,7 @@ void getCmd()
 	else if (!strcmp(next_tok, "sched-cycle"))
 		printf("\nSchedule cycle length: %d (microseconds) \n", rconfig.schedcycle);
 	else if (!strcmp(next_tok, "verbose"))
-		printf("\nVerbose level: %ld \n", (long int)prog_verbosity_level());
+		printf("\nVerbose level: %ld \n", prog_verbosity_level());
 	else if (!strcmp(next_tok, "raw-times"))
 		printf("\nRaw time mode: %d  \n", getTimeMode());
 	else if (!strcmp(next_tok, "update-delay"))

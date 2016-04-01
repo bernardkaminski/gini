@@ -1,0 +1,4 @@
+ifconfig add raw0 -addr 172.31.44.62
+route add -dev raw0 -net 172.31.32.1 -netmask 255.255.255.255
+
+
