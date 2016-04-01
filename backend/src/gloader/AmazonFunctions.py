@@ -141,13 +141,29 @@ class AmazonCloudFunctions:
             +" 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "
             +cloud_name+";exec bash'", shell=True)
 
-        time.sleep(5) # Give the local router time to setup the tcp tunnel before the cloud tries to connect 
+        time.sleep(2) # Give the local router time to setup the tcp tunnel before the cloud tries to connect 
 
         # Create local router (server for tcp)
         local_conf_path = tunnel_config_file.strip("/grouter.conf")
-        p1 = subprocess.Popen("export DISPLAY=:0; xterm -e "+os.environ["GINI_ROOT"]
-            +"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + local_conf_path 
-            + " --config=grouter.conf "+tunnel_name, shell=True)
+        conf_path = tunnel_config_file.strip("/grouter.conf")
+        #p2 = subprocess.Popen(""+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+tunnel_name, shell=True)
+
+        oldDir = os.getcwd()
+        os.chdir("/"+conf_path+"/")
+        #print command
+        command = "screen -d -m -L -S %s " % (tunnel_name)
+        startOut = open("startit.sh", "w")
+        startOut.write(command+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+tunnel_name)
+        startOut.close()
+        os.chmod("startit.sh",0755)
+        os.system("./startit.sh")
+        print "[OK]"
+        os.chdir(oldDir)
+        # Wait after starting router so they have time to create sockets
+        time.sleep(2)
+        #p1 = subprocess.Popen("export DISPLAY=:0; xterm -e "+os.environ["GINI_ROOT"]
+         #   +"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + local_conf_path 
+          #  + " --config=grouter.conf "+tunnel_name, shell=True)
     # dstport should be the same as the interface id
     # Name of router is Router_1 where in this case 1 is the router number
     # start the local router ...
