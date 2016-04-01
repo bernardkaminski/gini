@@ -306,7 +306,6 @@ def createVR(myGxINI, options):
                 configOut = open(configFile,"r+")
                 data = configOut.read()
                 data = getCloudIFOutLine(tunIF,s)+data
-                print(data)
                 configOut.truncate()
                 configOut.seek(0)
                 configOut.write(data)
@@ -617,32 +616,34 @@ def getVRIFOutLine(nwIf, socketName):
         outLine += "\n"
     outLine += "display update-delay 2\n"
     return outLine
+
 def getCloudIFOutLine(nwIf,amazon):
-    print("Trying to get public ip")
     local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
     print("Got public ip")
-    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 20001 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 0\n"#needs to be tun0
+    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 20001 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 1\n"#needs to be tun0
     for r in nwIf.routes:
         route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
-    #raw socket commands for injecting packets into the kernel
 
+    #raw socket commands for injecting packets into the kernel
     ifconfig_raw = "ifconfig add raw1 -addr "+amazon.get_private_ip()+"\n"
 
     #for some reason unable to get the default gateway ip address from boto3
     #have to do it this way
-
     cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
     route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
     return (ifconfig + route + ifconfig_raw+ route_raw)
+
 def getLocalTunnelOutline(nwIf,amazon):
-    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 20001 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+" -s 1\n"
+    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 20001 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+" -s 0\n"
     cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
+    default_gateway_mac = cloud_arp_table.split()[3]
     for r in nwIf.routes:
         route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
         route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
-    return (ifconfig+route)
+    arp = "arp add -ip "+default_gateway+" -mac "+default_gateway_mac+"\n"
+    return (arp + ifconfig + route)
 
 
 def getVMIFOutLine(nwIf, socketName, name):

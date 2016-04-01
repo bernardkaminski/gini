@@ -634,7 +634,7 @@ void arpCmd()
 				next_tok = strtok(NULL, " \n");
 				Dot2IP(next_tok, ip_addr);
 			}
-			} else if ((next_tok = strtok(NULL, " \n")) != NULL)
+			} if ((next_tok = strtok(NULL, " \n")) != NULL)
             {
 				if (!strcmp("-mac", next_tok))
 				{
