@@ -250,7 +250,7 @@ def get_IF_properties(netWIF, num_nodes):
 def createCR(myGINI, options):
     time.sleep(GROUTER_WAIT)
 
-def createVR(myGxINI, options):
+def createVR(myGINI, options):
     "create router config file, and start the router"
     routerDir = options.routerDir
     switchDir = options.switchDir
@@ -296,6 +296,7 @@ def createVR(myGxINI, options):
         configOut.close()
         ### ------- execute ---------- ###
         # go to the router directory to execute the command
+        router.printMe() # for some reason Cloud_1 does not have any nwIf
         oldDir = os.getcwd()
         if "Cloud" in router.name:
             #add to config file
@@ -303,20 +304,10 @@ def createVR(myGxINI, options):
             cloud_name=router.name
             for tunIF in router.tunIF:
                 # Prepend the new commands
+                tunIF.printMe()
                 configOut = open(configFile,"r+")
-                data = configOut.read()
-                data = getCloudIFOutLine(tunIF,s)+data
-                configOut.truncate()
-                configOut.seek(0)
-                configOut.write(data)
+                configOut.write(getCloudIFOutLine(tunIF,s))
                 configOut.close()
-
-            #start rpc server
-            #os.chdir("../../../../Cloud")#this is path to where connor clouds stuff is onmy machine
-            #subprocess.call(['python','AmazonCloudServer.py'])
-            #wait for server to go up
-            #time.sleep(1)
-            #s = xmlrpclib.ServerProxy('http://localhost:8000')
             isCloudConfigWritten = True
             if(isLocalTunConfWritten):
                 s.create_tunnel(cloud_config_file,tunnel_config_file,cloud_name,tunnel_name)
@@ -621,8 +612,9 @@ def getCloudIFOutLine(nwIf,amazon):
     local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
     print("Got public ip")
     ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 20001 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 1\n"#needs to be tun0
+    route = ""
     for r in nwIf.routes:
-        route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
+        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
 
     #raw socket commands for injecting packets into the kernel
     ifconfig_raw = "ifconfig add raw1 -addr "+amazon.get_private_ip()+"\n"
@@ -639,9 +631,10 @@ def getLocalTunnelOutline(nwIf,amazon):
     cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
     default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
     default_gateway_mac = cloud_arp_table.split()[3]
+    route = ""
     for r in nwIf.routes:
-        route = "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
-        route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
+        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
+    route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
     arp = "arp add -ip "+default_gateway+" -mac "+default_gateway_mac+"\n"
     return (arp + ifconfig + route)
 
