@@ -1,8 +1,8 @@
 /*
- * This is the low level driver for the wlan interface. 
- * It creates a wlan interface on the station and hooks up a 
- * raw socket to the interface.
+ * This is a modified version of Ahmed Youssef's raw.c. 
+ * In this case, we use the raw socket to inject packets into an AWS instance. 
  * 
+ * Modified by Connor Stein (connor.stein@mail.mcgill.ca)
  * Copyright (C) 2015 Ahmed Youssef (ahmed.youssef@mail.mcgill.ca)
  * Licensed under the GPL.
  */
@@ -66,7 +66,7 @@ void *toRawDev(void *arg)
 		not begin with that prefix, we know that the packet has come from the local gini network instead.
 		In this case we want to apply a SNAT, to make the packet seem as if it has come from the cRouter 
 		so that Amazon machines will be able to respond (recognize the address). Note that the reverse
-		NAT operation is performed in ip.c
+		NAT operation is performed in ip.c*/
 		
 		char tmp[MAX_TMPBUF_LEN], tmp2[MAX_TMPBUF_LEN];
 		ip_packet_t *ipkt = (ip_packet_t *)(inpkt->data.data);
@@ -76,8 +76,8 @@ void *toRawDev(void *arg)
 		if(inpkt->data.header.prot != htons(ARP_PROTOCOL) && !(tmp2[0] == '1' && tmp2[1] == '7' && tmp2[2] == '2')) {
 			ipkt->ip_hdr_len = 5;                                 
 			icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + ipkt->ip_hdr_len*4);
-			/The IP address given to the SNAT function is the private ip address of the 
-			Amazon instance that is running the cRouter in reverse 
+			/*The IP address given to the SNAT function is the private ip address of the 
+			Amazon instance that is running the cRouter in reverse */
 			char tmp3[MAX_TMPBUF_LEN];
 			memset(tmp3, 0, sizeof(tmp3));
 			char *eth0ip = getIp();
@@ -87,11 +87,10 @@ void *toRawDev(void *arg)
 			applySNAT(tmp3, (ip_packet_t*)inpkt->data.data, icmphdr->un.echo.id);
 			printNAT();	
 		}
-*/
+
 		/* send IP packet or ARP reply */
 		if (inpkt->data.header.prot == htons(ARP_PROTOCOL))
 		{
-			printf("CONNORS DEBUG arp in toRawDev\n");
 			apkt = (arp_packet_t *) inpkt->data.data;
 			COPY_MAC(apkt->src_hw_addr, iface->mac_addr);
 			COPY_IP(apkt->src_ip_addr, gHtonl(tmpbuf, iface->ip_addr));

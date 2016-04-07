@@ -1,25 +1,14 @@
 from urllib2 import urlopen
 import os
 import shutil
-from xml.etree.ElementPath import _SelectorContext
 import boto3
 import time
 import sys
-import multiprocessing
 import subprocess
-
-# Restrict to a particular path.
-#class RequestHandler(SimpleXMLRPCRequestHandler):
- #   rpc_paths = ('/RPC2',)
-
-
-# Create server
-#server = SimpleXMLRPCServer(("localhost", 8000), requestHandler=RequestHandler, allow_none=True)
-#server.register_introspection_functions()
-
 
 # Server dependencies awscli, boto3, python3
 class AmazonCloudFunctions:
+
     def __init__(self):
         self.key_pair = None
         self.key_name = os.environ["GINI_ROOT"]+"/GINI.pem"
@@ -113,21 +102,6 @@ class AmazonCloudFunctions:
         f.close()
         os.chmod(f.name, 0400)
 
-    def get_port_number(self, interface_id, router_number):
-        return 60000 + interface_id + router_number * 100
-
-    def cloud_shell(self,config_file, name):
-        # login as root in order to create the raw socket
-        os.system("DISPLAY=:0 xterm -hold -e ssh -X -i "+self.key_name
-            +" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip 
-            + " 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "+name+";exec bash'")
-
-    def local_shell(self, config_file, name):
-        conf_path = config_file.strip("/grouter.conf")
-        os.system("DISPLAY=:0 xterm -hold -e "+os.environ["GINI_ROOT"]
-            +"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" 
-            + conf_path + " --config=grouter.conf "+name)
-
     def create_tunnel(self,cloud_config_file,tunnel_config_file,cloud_name,tunnel_name):
        # need to copy the yRouter to the cloud
         print("Creating tunnel")
@@ -138,7 +112,7 @@ class AmazonCloudFunctions:
         
         p2 = subprocess.Popen("export DISPLAY=:0; xterm -e ssh -X -i "+self.key_name
             +" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip 
-            +" 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/yRouter/src/yrouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "
+            +" 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/cRouter/src/crouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "
             +cloud_name+";exec bash'", shell=True)
 
         time.sleep(2) # Give the local router time to setup the tcp tunnel before the cloud tries to connect 
@@ -153,7 +127,7 @@ class AmazonCloudFunctions:
         #print command
         command = "screen -d -m -L -S %s " % (tunnel_name)
         startOut = open("startit.sh", "w")
-        startOut.write(command+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+tunnel_name)
+        startOut.write(command+os.environ["GINI_ROOT"]+"/cRouter/src/crouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+tunnel_name)
         startOut.close()
         os.chmod("startit.sh",0755)
         os.system("./startit.sh")
@@ -161,42 +135,6 @@ class AmazonCloudFunctions:
         os.chdir(oldDir)
         # Wait after starting router so they have time to create sockets
         time.sleep(2)
-        #p1 = subprocess.Popen("export DISPLAY=:0; xterm -e "+os.environ["GINI_ROOT"]
-         #   +"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + local_conf_path 
-          #  + " --config=grouter.conf "+tunnel_name, shell=True)
-    # dstport should be the same as the interface id
-    # Name of router is Router_1 where in this case 1 is the router number
-    # start the local router ...
-    def create_tunnel_cloud_config_file(self):
-        f = open("cloud_tunnel", "w")
-        print("Trying to get public ip")
-        local_ip = urlopen('http://ip.42.pl/raw').read()  # Get local public IP
-        print("Got public ip")
-        ifconfig = "ifconfig add tun0 -dstip " + local_ip + " -dstport 0 -addr 10.10.10.10 -hwaddr a0:a0:a0:a0:a0\n"
-        f.write(ifconfig)
-        route = "route add -dev tun0 -net 20.20.20.20 -netmask 255.255.255.255\n"
-        f.write(route)
-        # raw socket commands for injecting packets into the kernel
-        ifconfig_raw = "ifconfig add raw1 -addr " + self.new_instance_private_ip + "\n"
-        f.write(ifconfig_raw)
-        # for some reason unable to get the default gateway ip address from boto3
-        # have to do it this way
-        cloud_arp_table = os.popen('ssh -i '+self.key_name+' ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
-        default_gateway = cloud_arp_table[cloud_arp_table.find("(") + 1:cloud_arp_table.find(")")]
-        route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw " + default_gateway + "\n"
-        f.write(route_raw)
-        f.close()
-
-    def create_tunnel_local_config_file(self):
-        if self.new_instance_ip == None:
-            print("Create an instance first!")
-            return
-        f = open("local_tunnel", "w")
-        ifconfig = "ifconfig add tun0 -dstip " + self.new_instance_ip + " -dstport 0 -addr 20.20.20.20 -hwaddr a1:a1:a1:a1:a1\n"
-        f.write(ifconfig)
-        route = "route add -dev tun0 -net 10.10.10.10 -netmask 255.255.255.255\n"
-        f.write(route)
-        f.close()
 
     def add_udp_rules(self):
 

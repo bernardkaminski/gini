@@ -41,17 +41,7 @@ void ICMPProcessPacket(gpacket_t *in_pkt)
 		break;
 
 	case ICMP_ECHO_REPLY:
-	        printf("ECHO REPLY ID: %d", icmphdr->un.echo.id);
-/*		printGPacket(ip_pkt, 3, "connor");
-		if(applyDNAT(ip_pkt, icmphdr->un.echo.id)!=-1){
-			//DNAT was applied, pass on the packet
-			//printNAT();	
-			///IPOutgoingPacket(ip_pkt, NULL, 0, 0, ICMP_PROTOCOL); // second last parameter indicates if is a new packet, in this case no, so set to zero
-			printGPacket(ip_pkt, 3, "connor");
-			break;
-		}	*/
 		verbose(1, "[ICMPProcessPacket]:: ICMP processing for ECHO reply");
-//		ICMPProcessEchoRequest(in_pkt);
 		ICMPProcessEchoReply(in_pkt);
 		break;
 
@@ -188,7 +178,6 @@ void ICMPProcessTTLExpired(gpacket_t *in_pkt)
  */
 void ICMPProcessEchoRequest(gpacket_t *in_pkt)
 {
-	printf("ICMP ProcessEcho Request\n");
 	ip_packet_t *ipkt = (ip_packet_t *)in_pkt->data.data;
 	int iphdrlen = ipkt->ip_hdr_len *4;
 	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + iphdrlen);
@@ -249,13 +238,12 @@ void ICMPProcessEchoReply(gpacket_t *in_pkt)
 	}
 }
 
-
 /*
- * send an ICMP Redirect
+ * send an ICMP Redirect, modified to not actually send the redirect, because causes
+* erroneous error message pings when communicating with the AWS instance
  */
 void ICMPProcessRedirect(gpacket_t *in_pkt, uchar *gw_addr)
 {
-	printf("ICMP Redirect");
 	ip_packet_t *ipkt = (ip_packet_t *)in_pkt->data.data;
 	int iphdrlen = ipkt->ip_hdr_len * 4;
 	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + iphdrlen);
@@ -279,38 +267,6 @@ void ICMPProcessRedirect(gpacket_t *in_pkt, uchar *gw_addr)
 
 	// send the message back to the IP routine for further processing ..
 	// set the messsage as REPLY_PACKET
-	IPOutgoingPacket(in_pkt, gNtohl(tmpbuf, ipkt->ip_src), (8 + iprevlen), 0, ICMP_PROTOCOL);
+	//IPOutgoingPacket(in_pkt, gNtohl(tmpbuf, ipkt->ip_src), (8 + iprevlen), 0, ICMP_PROTOCOL);
 }
 
-
-
-
-/*
- * send a Fragmentation needed from previous router
- */
-void ICMPProcessFragNeeded(gpacket_t *in_pkt, int interface_mtu)
-{
-	ip_packet_t *ipkt = (ip_packet_t *)in_pkt->data.data;
-	int iphdrlen = ipkt->ip_hdr_len *4;
-	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + iphdrlen);
-	int iprevlen = iphdrlen + 8;  // IP header + 64 bits
-	ushort cksum;
-	char tmpbuf[MAX_TMPBUF_LEN];
-	uchar prevbytes[MAX_IPREVLENGTH_ICMP];
-	memcpy(prevbytes, (uchar *)ipkt, iprevlen);            // save OLD portions of IP packet
-
-	// form an ICMP Fragmentation needed message
-	icmphdr->type = ICMP_DEST_UNREACH;
-	icmphdr->code = ICMP_FRAG_NEEDED; 
-	icmphdr->checksum = 0;
-	icmphdr->un.frag.mtu = interface_mtu;
-	memcpy(((uchar *)icmphdr + 8), prevbytes, iprevlen);    // OLD ip header + 64 bits of original pkt 
-	cksum = checksum((uchar *)icmphdr, (8 + iprevlen)/2 );
-	icmphdr->checksum = htons(cksum);
-
-	verbose(2, "[processFragNeeded]:: Sending... ICMP Frag needed message ");
-
-	// send the message back to the IP module for further processing ..
-	// set the messsage as REPLY_PACKET
-	IPOutgoingPacket(in_pkt, gNtohl(tmpbuf, ipkt->ip_src), (8 + iprevlen), 0, ICMP_PROTOCOL);
-}

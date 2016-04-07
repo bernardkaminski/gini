@@ -2,7 +2,7 @@
  * ip.c (collection of functions that implement the IP (Internet protocol).
  * AUTHOR: Original version by Weiling Xu
  *         Revised by Muthucumaru Maheswaran
- *
+ *	   Modified by Connor Stein for the cRouter implementation (adding support for AWS)
  * DATE:   Last revised on June 22, 2008
  */
 
@@ -52,23 +52,23 @@ void IPIncomingPacket(gpacket_t *in_pkt)
 	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ip_pkt + iphdrlen);
 
 	// Obtain source IP address (also for the purpose of Amazon NAT traversal)
-/*	char tmp[MAX_TMPBUF_LEN], tmp2[MAX_TMPBUF_LEN];
+	char tmp[MAX_TMPBUF_LEN], tmp2[MAX_TMPBUF_LEN];
 	gNtohl(tmp, ip_pkt->ip_src); // The raw ip src will have reversed byte order, this function switches it back
 	IP2Dot(tmp2, tmp); // Now tmp2 contains the source IP address in the correct byte order (not network byte order)
 
-	*If both the ICMP ECHO ID and the IP address are in the NAT table
+	/*If both the ICMP ECHO ID and the IP address are in the NAT table
 	(the NAT table used for traversing between local and amazon GINI networks), 
 	then undo the SNAT procedure that was done on the way out of this router (in raw.c). 
 	For example, pinging a machine on the amazon network from a local gini network
 	would result in an SNAT applied at the cRouter, making the packet appear as if it came
 	from the cRouter itself. Now when a ECHO REPLY comes back, we undo that SNAT here.
 	We only want to apply the DNAT on the reverse traversal of the NAT, i.e. if the source IP address prefix
-	is not 192 (local gini network).
+	is not 192 (local gini network).*/
 	if(!(tmp2[0]=='1' && tmp2[1]=='9' && tmp2[2] =='2') && (applyDNAT(ip_pkt, icmphdr->un.echo.id) != -1)){
 		//DNAT was applied, pass on the packet
 	}			       	
 	
-*/	
+	
 	// Is this IP packet for me??
 	if (IPCheckPacket4Me(in_pkt))
 	{
@@ -306,7 +306,35 @@ int IPCheck4Redirection(gpacket_t *in_pkt)
 	return EXIT_SUCCESS;
 }
 
+/*
+ * send a Fragmentation needed from previous router
+ */
+void ICMPProcessFragNeeded(gpacket_t *in_pkt, int interface_mtu)
+{
+	ip_packet_t *ipkt = (ip_packet_t *)in_pkt->data.data;
+	int iphdrlen = ipkt->ip_hdr_len *4;
+	icmphdr_t *icmphdr = (icmphdr_t *)((uchar *)ipkt + iphdrlen);
+	int iprevlen = iphdrlen + 8;  // IP header + 64 bits
+	ushort cksum;
+	char tmpbuf[MAX_TMPBUF_LEN];
+	uchar prevbytes[MAX_IPREVLENGTH_ICMP];
+	memcpy(prevbytes, (uchar *)ipkt, iprevlen);            // save OLD portions of IP packet
 
+	// form an ICMP Fragmentation needed message
+	icmphdr->type = ICMP_DEST_UNREACH;
+	icmphdr->code = ICMP_FRAG_NEEDED; 
+	icmphdr->checksum = 0;
+	icmphdr->un.frag.mtu = interface_mtu;
+	memcpy(((uchar *)icmphdr + 8), prevbytes, iprevlen);    // OLD ip header + 64 bits of original pkt 
+	cksum = checksum((uchar *)icmphdr, (8 + iprevlen)/2 );
+	icmphdr->checksum = htons(cksum);
+
+	verbose(2, "[processFragNeeded]:: Sending... ICMP Frag needed message ");
+
+	// send the message back to the IP module for further processing ..
+	// set the messsage as REPLY_PACKET
+	IPOutgoingPacket(in_pkt, gNtohl(tmpbuf, ipkt->ip_src), (8 + iprevlen), 0, ICMP_PROTOCOL);
+}
 
 /*
  * process an IP packet destined to the router itself

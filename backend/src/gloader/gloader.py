@@ -256,19 +256,24 @@ def createVR(myGINI, options):
     switchDir = options.switchDir
     # create the main router directory
     makeDir(routerDir)
+
+    # All of the below should happen only if a cloud / tunnel is present
     isCloudConfigWritten = False
     isLocalTunConfWritten = False
     s = AmazonCloudFunctions()
-    print("creating amazon object\n")
+    print("Authenticating with AWS ... ")
     s.configure_aws("AKIAIM65WKOBI3B3ETKA","emIme22KJKEPwrNIVbZ4h+FLeUhDrwNgqKWt55su")#put keys here didnt want to commit them
     #s.create_instance()
-    print("configered aws\n")
+    print("AWS Authenticated")
     s.get_running_instance("172.31.44.62")
+    print("Obtained running instance 172.31.44.62")
+    tunnel_port = "50001"
     cloud_config_file=None
     tunnel_config_file = None
     cloud_name=None
     tunnel_name=None
-    print("got running instances\n")
+    tunnel_gateway = getTunnelGateway(myGINI.vr)
+    
     for router in myGINI.vr:
         print "Starting Router %s...\t" % router.name,
         sys.stdout.flush()
@@ -291,41 +296,37 @@ def createVR(myGINI, options):
                 return False
             else:
                 configOut.write(getVRIFOutLine(nwIf, socketName))
-        configOut.write("echo -ne \"\\033]0;" + router.name + "\\007\"")
+        #configOut.write("echo -ne \"\\033]0;" + router.name + "\\007\"")
         configOut.write("\n")
         configOut.close()
         ### ------- execute ---------- ###
         # go to the router directory to execute the command
-        router.printMe() # for some reason Cloud_1 does not have any nwIf
         oldDir = os.getcwd()
+    
         if "Cloud" in router.name:
-            #add to config file
+            # Create the cloud config file
             cloud_config_file=configFile
             cloud_name=router.name
             for tunIF in router.tunIF:
-                # Prepend the new commands
-                tunIF.printMe()
+                tunnel_gateway = tunIF.ip
                 configOut = open(configFile,"r+")
-                configOut.write(getCloudIFOutLine(tunIF,s))
+                configOut.write(getCloudIFOutLine(tunIF,s, tunnel_port))
                 configOut.close()
             isCloudConfigWritten = True
             if(isLocalTunConfWritten):
                 s.create_tunnel(cloud_config_file,tunnel_config_file,cloud_name,tunnel_name)
-
-            #continue here check if we need to do anything else tony
             os.chdir(oldDir)
-        elif("Tunnel" in router.name):
+        elif "Tunnel" in router.name:
+            # Create the tunnel config file
             tunnel_config_file = configFile
             tunnel_name = router.name
             for tunIF in router.tunIF:
                 configOut = open(configFile,"a")
-                configOut.write(getLocalTunnelOutline(tunIF,s))
+                configOut.write(getLocalTunnelOutline(tunIF,s, tunnel_gateway, tunnel_port))
                 configOut.close()
             isLocalTunConfWritten = True
             if(isCloudConfigWritten):
                 s.create_tunnel(cloud_config_file,tunnel_config_file,cloud_name,tunnel_name)
-
-
         else:
             oldDir = os.getcwd()
             os.chdir(subRouterDir)
@@ -344,8 +345,6 @@ def createVR(myGINI, options):
             os.chdir(oldDir)
             # Wait after starting router so they have time to create sockets
             time.sleep(GROUTER_WAIT)
-
-
 
     return True
 
@@ -608,35 +607,33 @@ def getVRIFOutLine(nwIf, socketName):
     outLine += "display update-delay 2\n"
     return outLine
 
-def getCloudIFOutLine(nwIf,amazon):
+def getTunnelGateway(gini):
+    for router in gini:
+        if "Cloud" in router.name:
+            return router.tunIF[0].ip
+
+def getCloudIFOutLine(nwIf,amazon, tunnel_port):
     local_ip = urlopen('http://ip.42.pl/raw').read() # Get local public IP
-    print("Got public ip")
-    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport 20001 -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 1\n"#needs to be tun0
+
+    ifconfig = "ifconfig add "+nwIf.name +" -dstip "+local_ip+" -dstport "+tunnel_port+" -addr "+ nwIf.ip+" -hwaddr "+ nwIf.nic+" -s 1\n"#needs to be tun0
     route = ""
     for r in nwIf.routes:
-        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"#tun0
+        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+ " -gw "+ r.nexthop+"\n"
 
-    #raw socket commands for injecting packets into the kernel
+    # Raw socket commands for injecting packets into the kernel
     ifconfig_raw = "ifconfig add raw1 -addr "+amazon.get_private_ip()+"\n"
-
-    #for some reason unable to get the default gateway ip address from boto3
-    #have to do it this way
-    cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
-    default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
-    route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
+    # Add route rule for all the amazon machines 
+    route_raw = "route add -dev raw1 -net 172.0.0.0 -netmask 255.0.0.0\n"
     return (ifconfig + route + ifconfig_raw+ route_raw)
 
-def getLocalTunnelOutline(nwIf,amazon):
-    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport 20001 -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+" -s 0\n"
-    cloud_arp_table = os.popen('ssh -i '+ amazon.key_name +' ubuntu@'+amazon.get_ip()+" 'arp -a'").read()
-    default_gateway = cloud_arp_table[cloud_arp_table.find("(")+1:cloud_arp_table.find(")")]
-    default_gateway_mac = cloud_arp_table.split()[3]
+def getLocalTunnelOutline(nwIf,amazon, tunnel_gateway, tunnel_port):
+    ifconfig = "ifconfig add " +nwIf.name+ " -dstip " + amazon.get_ip() + " -dstport "+tunnel_port+" -addr "+nwIf.ip+" -hwaddr "+nwIf.nic+" -s 0\n"
     route = ""
     for r in nwIf.routes:
-        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+"\n"
-    route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+default_gateway+"\n"
-    arp = "arp add -ip "+default_gateway+" -mac "+default_gateway_mac+"\n"
-    return (arp + ifconfig + route)
+        route += "route add -dev "+ nwIf.name+" -net "+ r.dest + " -netmask "+ r.netmask+" -gw " +r.nexthop+"\n"
+    print(amazon.get_private_ip())
+    route += "route add -dev "+ nwIf.name+" -net 172.0.0.0 -netmask 255.0.0.0 -gw "+tunnel_gateway+"\n"
+    return (ifconfig + route)
 
 
 def getVMIFOutLine(nwIf, socketName, name):

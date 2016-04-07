@@ -31,7 +31,6 @@ extern router_config rconfig;
 
 void *toTunDev(void *arg)
 {
-	printf("CONNOR DEBUG: toTunDev\n");
 
 	gpacket_t *inpkt = (gpacket_t *)arg;
 	interface_t *iface;
@@ -46,7 +45,6 @@ void *toTunDev(void *arg)
 		/* send IP packet or ARP reply */
 		if (inpkt->data.header.prot == htons(ARP_PROTOCOL))
 		{
-			printf("CONNOR DEBUG: sending arp\n");
 			apkt = (arp_packet_t *) inpkt->data.data;
 			COPY_MAC(apkt->src_hw_addr, iface->mac_addr);
 			COPY_IP(apkt->src_ip_addr, gHtonl(tmpbuf, iface->ip_addr));
@@ -67,7 +65,6 @@ void *toTunDev(void *arg)
  */
 void* fromTunDev(void *arg)
 {
-    printf("CONNOR DEBUG: fromTunDev");
     interface_t *iface = (interface_t *) arg;
     interface_array_t *iarr = (interface_array_t *)iface->iarray;
     uchar bcast_mac[] = MAC_BCAST_ADDR;

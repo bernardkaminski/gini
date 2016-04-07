@@ -74,7 +74,6 @@ int ARPSend2Output(gpacket_t *pkt)
  */
 int ARPResolve(gpacket_t *in_pkt)
 {
-	printf("CONNORS DEBUG: ARPResolve\n");
 	uchar mac_addr[6];
 	char tmpbuf[MAX_TMPBUF_LEN];
 	

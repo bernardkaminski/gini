@@ -90,7 +90,6 @@ void toNetworkByteOrder(char *ip, char *result){
 void applySNAT(char *new_src, ip_packet_t *raw_ip, int id){
 	
 	char buf[40];
-	printf("\nOld IP %s\n", IP2Dot(buf, raw_ip->ip_src)); 
 
 	if(getSrcFromNAT(id) == NULL){
 		// Save the NAT entry if the ping id is not already saved
@@ -102,8 +101,6 @@ void applySNAT(char *new_src, ip_packet_t *raw_ip, int id){
 	// Recompute the checksum
 	raw_ip->ip_cksum = 0;
 	raw_ip->ip_cksum = htons(checksum((unsigned char *) raw_ip, raw_ip->ip_hdr_len *2));
-	printf("\nNew IP %s\n", IP2Dot(buf, raw_ip->ip_src));
-	printf("\nNew checksum computed: %d\n", IPVerifyPacket(raw_ip));
 }
 
 int applyDNAT(ip_packet_t *raw_ip, int id){
@@ -111,7 +108,6 @@ int applyDNAT(ip_packet_t *raw_ip, int id){
 	char *src = getSrcFromNAT(id);
 	if(src == NULL) return -1; // No dnat to be applied, wasn't snatted in the first place
 	char buf[40];
-	printf("\nOld dst %s\n", IP2Dot(buf, raw_ip->ip_dst));
 
 	// Apply new destination 
 	Dot2IP(src, raw_ip->ip_dst);
@@ -119,8 +115,6 @@ int applyDNAT(ip_packet_t *raw_ip, int id){
 	// Recompute the checksum
 	raw_ip->ip_cksum = 0;
 	raw_ip->ip_cksum = htons(checksum((unsigned char *) raw_ip, raw_ip->ip_hdr_len *2));
-	printf("\nNew dst %s\n", IP2Dot(buf, raw_ip->ip_dst));
-	printf("\nNew checksum computed: %d\n", IPVerifyPacket(raw_ip));
 	return 0;
 }
 
@@ -147,11 +141,14 @@ char* getSrcFromNAT(int id){
 
 void printNAT(void){
 	int i;
-	char tmp[40];
-	printf("\n NAT TABLE \n");
+	char tmp[40], tmp2[40];
+	printf("\n\n NAT TABLE: \n\n");
 	for(i = 0; i < MAX_NAT_ENTRIES; i++){
 		IP2Dot(tmp, nat_table[i].ip_src);
-		printf("ICMP ID: %d, SRC IP: %s\n", nat_table[i].icmp_id, tmp);
+//		toNetworkByteOrder(tmp, tmp2);
+		printf("ICMP ID: %d IP: %s\n", nat_table[i].icmp_id, tmp);
+		memset(tmp, 0, sizeof(tmp));
+		memset(tmp2, 0, sizeof(tmp2));
 	}
 }
 

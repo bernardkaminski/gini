@@ -373,8 +373,8 @@ void ifconfigCmd()
     char dev_name[MAX_DNAME_LEN], con_sock[MAX_NAME_LEN], dev_type[MAX_NAME_LEN];
     uchar mac_addr[6], ip_addr[4], gw_addr[4], dst_ip[4];
     int mtu, interface, mode;
-    short int dst_port, is_server;
-    
+    short int is_server;
+    unsigned short dst_port;
     // set default values for optional parameters
     bzero(gw_addr, 4);
     mtu = DEFAULT_MTU;
@@ -419,12 +419,10 @@ void ifconfigCmd()
             Dot2IP(next_tok, dst_ip);  
             
             GET_NEXT_PARAMETER("-dstport", "ifconfig:: missing -dstport spec ..");
-            printf("Tok %s\n", next_tok);
-	    dst_port = (short int)atoi(next_tok);
-	    printf("Entered dstport %d\n", dst_port);
+            dst_port = (unsigned short)atoi(next_tok);
             if(strcmp(dev_type, "ttun") == 0){
-            	if(dst_port < 10000){
-            		error("Must enter port number >10,000 for TCP tunnel");
+            	if(dst_port < 50000){
+            		error("Must enter port number >50,000 for TCP tunnel");
             		return;
             	}
             }
