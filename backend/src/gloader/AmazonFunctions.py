@@ -60,6 +60,10 @@ class AmazonCloudFunctions:
                 print("Key already exists")
                 os.chmod(self.key_path, 0400)
                 break
+            if key_info.key_name == self.key_name and not os.path.exists(self.key_path):
+                print("Key exists remotely, but not locally")
+                self.ec2.KeyPair(self.key_name).delete(DryRun=False)
+                break
         if not found_key:
             self.key_gen()
         # This image ID is a special image that has the yRouter installed on it
