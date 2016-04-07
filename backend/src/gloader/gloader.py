@@ -815,6 +815,12 @@ def destroyVWR(wrouters, routerDir):
         
 def destroyVR(routers, routerDir):
     for router in routers:
+        if("Cloud" in router.name):
+            s=boto3.resource('ec2')
+            for i in s.instances.all():
+                i.terminate()
+            print "killed all Instances\n"
+
         print "Stopping Router %s..." % router.name
         # get the pid file
         print "\tCleaning the PID file...\t",
