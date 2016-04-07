@@ -11,13 +11,14 @@ class AmazonCloudFunctions:
 
     def __init__(self):
         self.key_pair = None
-        self.key_name = os.environ["GINI_ROOT"]+"/GINI.pem"
+        self.key_name = "GINI"
+        self.key_path = os.environ["GINI_ROOT"]+"/"+self.key_name+".pem"
         self.ec2 = None
         self.new_instance_ip = None  # just for debugging
         self.new_instance_private_ip = None
 
     def print_routes(self):
-        string = os.popen('ssh -i '+self.key_name+' ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
+        string = os.popen('ssh -i '+self.key_path+' ubuntu@' + self.new_instance_ip + " 'arp -a'").read()
         print string
 
     def configure_aws(self, key, secret_key):
@@ -54,13 +55,15 @@ class AmazonCloudFunctions:
         # If the GINI key does not exist, create it
         found_key = 0
         for key_info in self.ec2.key_pairs.all():
-            if key_info.key_name == self.key_name:
+            if key_info.key_name == self.key_name and os.path.exists(self.key_path):
                 found_key = 1
+                print("Key already exists")
+                os.chmod(self.key_path, 0400)
                 break
         if not found_key:
             self.key_gen()
         # This image ID is a special image that has the yRouter installed on it
-        new_instance = self.ec2.create_instances(ImageId="ami-4021c620", MinCount=1, MaxCount=1,
+        new_instance = self.ec2.create_instances(ImageId="ami-7e84701e", MinCount=1, MaxCount=1,
                                                  InstanceType='t2.micro', KeyName=self.key_name,
                                                  SecurityGroups=['GINI', ])
         # Chill for that instance to be crafted
@@ -93,34 +96,34 @@ class AmazonCloudFunctions:
                 break
 
     def key_gen(self):
-        # False means make the key for real
+        if os.path.exists(self.key_path):
+            os.remove(self.key_path)
+        print("Creating a new key")
         self.key_pair = self.ec2.create_key_pair(DryRun=False, KeyName=self.key_name)
-        if os.path.exists(self.key_name):
-            os.chmod(self.key_name, 0777)
-        f = open(self.key_name, 'w')
+        f = open(self.key_path, 'w')
         f.write(self.key_pair.key_material)
         f.close()
-        os.chmod(f.name, 0400)
+        os.chmod(self.key_path, 0400)
+        
 
     def create_tunnel(self,cloud_config_file,tunnel_config_file,cloud_name,tunnel_name):
        # need to copy the yRouter to the cloud
         print("Creating tunnel")
         # Copy the cloud configuration file to the instance
         os.system(
-            "scp -i " + self.key_name + " -o StrictHostKeyChecking=no "
+            "scp -i " + self.key_path + " -o StrictHostKeyChecking=no "
             +cloud_config_file+" ubuntu@" + self.new_instance_ip + ":/home/ubuntu")
         
-        p2 = subprocess.Popen("export DISPLAY=:0; xterm -e ssh -X -i "+self.key_name
+        # Create cloud router (server for tcp)
+        p2 = subprocess.Popen("export DISPLAY=:0; xterm -e ssh -X -i "+self.key_path
             +" -o StrictHostKeyChecking=no -t ubuntu@" + self.new_instance_ip 
             +" 'export GINI_HOME=/home/ubuntu; sudo -E /home/ubuntu/cRouter/src/crouter --interactive=1 --confpath=/home/ubuntu --config=grouter.conf "
             +cloud_name+";exec bash'", shell=True)
+        print("Started cloud router on instance")
+        time.sleep(5) # Give the local router time to setup the tcp tunnel before the cloud tries to connect 
 
-        time.sleep(2) # Give the local router time to setup the tcp tunnel before the cloud tries to connect 
-
-        # Create local router (server for tcp)
-        local_conf_path = tunnel_config_file.strip("/grouter.conf")
+        # Create local router (client for tcp)
         conf_path = tunnel_config_file.strip("/grouter.conf")
-        #p2 = subprocess.Popen(""+os.environ["GINI_ROOT"]+"/cRouter/src/yrouter --interactive=1 --verbose=2 --confpath=/" + conf_path + " --config=grouter.conf "+tunnel_name, shell=True)
 
         oldDir = os.getcwd()
         os.chdir("/"+conf_path+"/")

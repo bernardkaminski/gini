@@ -265,8 +265,11 @@ def createVR(myGINI, options):
     s.configure_aws("AKIAIM65WKOBI3B3ETKA","emIme22KJKEPwrNIVbZ4h+FLeUhDrwNgqKWt55su")#put keys here didnt want to commit them
     #s.create_instance()
     print("AWS Authenticated")
-    s.get_running_instance("172.31.44.62")
-    print("Obtained running instance 172.31.44.62")
+    #s.get_running_instance("172.31.44.62")
+    s.create_instance()
+    print("Obtained running instance "+s.get_private_ip())
+    print("Waiting for instance to get up and running ...takes about 1 min, blame Amazon!")
+    time.sleep(60)
     tunnel_port = "50001"
     cloud_config_file=None
     tunnel_config_file = None
