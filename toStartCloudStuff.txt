@@ -1,1 +1,19 @@
-fisrt, copy GINI.PEM file to main gini folder, then make clean and make the contents in cRouter folder, Then connor, in gloader.py on line 266 is where you get the current running instance, change that ip to the instance you wanna test, and you should be good to go. 
+Create an AWS account, and obtain a AWS key and AWS Secret key
+git clone https://github.com/bernardkaminski/gini.git
+cd gini/
+git checkout Cloud // Switch to the cloud branch
+export GINI_HOME=<where you want to put the .gini folder of metadata>  // Bunch of files that allow the backend and frontend to communicate 
+export GINI_ROOT=<path to the repo you just cloned>
+echo "AWS_KEY = <your AWS key>" >> keys.py   // Note this keys.py should be in the gini dir you cloned
+echo "AWS_SECRET = <your AWS secret key>" >> keys.py
+scons install
+bin/gbuilder
+Inside the GUI that opens, click on the open icon, then select AmazonTest.gsav
+Click the green play button
+Wait 1-2 minutes for the cloud instance to get running
+
+Notes:
+- Make sure you kill the network with the red stop button, otherwise the instances may not be killed on the cloud
+and you would have to login to the AWS console to kill them
+- The xterm for the cloud icon opens automatically, and after you kill the network make sure you close that xterm manually
+(the red stop button does not kill that xterm), otherwise the tcp tunnel will have one endpoint open and likely will print a lot of stuff and slow down your computer

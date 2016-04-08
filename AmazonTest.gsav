@@ -1,0 +1,104 @@
+UML_1:(-215.000000,-153.000000)
+	filetype:cow
+	filesystem:root_fs_beta2
+	Name:UML_1
+	name:UML_1
+		interface:Router_1
+			subnet:192.168.1.0
+				route:192.168.2.0
+					netmask:255.255.255.0
+					gw:192.168.1.128
+				route:192.168.3.0
+					netmask:255.255.255.0
+					gw:192.168.1.128
+			mac:fe:fd:02:00:00:01
+			ipv4:192.168.1.2
+			mask:255.255.255.0
+Subnet_1:(-188.000000,-254.000000)
+	mask:255.255.255.0
+	subnet:192.168.1.0
+	Name:Subnet_1
+	name:Subnet_1
+Subnet_2:(-3.000000,-310.000000)
+	mask:255.255.255.0
+	subnet:192.168.2.0
+	Name:Subnet_2
+	name:Subnet_2
+Router_1:(-92.000000,-305.000000)
+	Name:Router_1
+	name:Router_1
+		interface:UML_1
+			subnet:192.168.1.0
+				route:192.168.1.0
+					netmask:255.255.255.0
+					gw:0.0.0.0
+			mac:fe:fd:03:01:00:01
+			ipv4:192.168.1.128
+			mask:255.255.255.0
+		interface:Tunnel_1
+			subnet:192.168.2.0
+				route:192.168.2.0
+					netmask:255.255.255.0
+					gw:0.0.0.0
+				route:192.168.3.0
+					netmask:255.255.255.0
+					gw:192.168.2.146
+			mac:fe:fd:03:01:00:02
+			ipv4:192.168.2.128
+			mask:255.255.255.0
+Cloud_1:(182.000000,-146.000000)
+	Name:Cloud_1
+	name:Cloud_1
+		interface:Tunnel_1
+			subnet:192.168.3.0
+				route:192.168.1.0
+					netmask:255.255.255.0
+					gw:192.168.3.146
+				route:192.168.2.0
+					netmask:255.255.255.0
+					gw:192.168.3.146
+				route:192.168.3.0
+					netmask:255.255.255.0
+					gw:0.0.0.0
+			mac:fe:fd:03:09:00:01
+			ipv4:192.168.3.136
+			mask:255.255.255.0
+Tunnel_1:(101.000000,-288.000000)
+	Name:Tunnel_1
+	name:Tunnel_1
+		interface:Router_1
+			subnet:192.168.2.0
+				route:192.168.1.0
+					netmask:255.255.255.0
+					gw:192.168.2.128
+				route:192.168.2.0
+					netmask:255.255.255.0
+					gw:0.0.0.0
+			mac:fe:fd:03:13:00:01
+			ipv4:192.168.2.146
+			mask:255.255.255.0
+		interface:Cloud_1
+			subnet:192.168.3.0
+				route:192.168.3.0
+					netmask:255.255.255.0
+					gw:0.0.0.0
+			mac:fe:fd:03:13:00:02
+			ipv4:192.168.3.146
+			mask:255.255.255.0
+Subnet_3:(139.000000,-209.000000)
+	mask:255.255.255.0
+	subnet:192.168.3.0
+	Name:Subnet_3
+	name:Subnet_3
+edge:(UML_1,Subnet_1)
+	id:SomeEdge
+edge:(Subnet_1,Router_1)
+	id:SomeEdge
+edge:(Router_1,Subnet_2)
+	id:SomeEdge
+edge:(Subnet_2,Tunnel_1)
+	id:SomeEdge
+edge:(Tunnel_1,Subnet_3)
+	id:SomeEdge
+edge:(Subnet_3,Cloud_1)
+	id:SomeEdge

@@ -1,0 +1,66 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE gloader SYSTEM "/home/connor/gini/share/gini/gloader/gloader.dtd">
+<gloader>
+
+<vr name="Router_1">
+	<netif>
+		<target>UML_1</target>
+		<network>192.168.1.0</network>
+		<nic>fe:fd:03:01:00:01</nic>
+		<ip>192.168.1.128</ip>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.1.0</rtentry>
+	</netif>
+	<netif>
+		<target>Tunnel_1</target>
+		<network>192.168.2.0</network>
+		<nic>fe:fd:03:01:00:02</nic>
+		<ip>192.168.2.128</ip>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.2.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.2.146">192.168.3.0</rtentry>
+	</netif>
+</vr>
+
+<vr name="Tunnel_1">
+	<netif>
+		<target>Router_1</target>
+		<network>192.168.2.0</network>
+		<nic>fe:fd:03:13:00:01</nic>
+		<ip>192.168.2.146</ip>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.2.128">192.168.1.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.2.0</rtentry>
+	</netif>
+	<loctun>
+		<target>Cloud_1</target>
+		<network>192.168.3.0</network>
+		<nic>fe:fd:03:13:00:02</nic>
+		<ip>192.168.3.146</ip>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.3.0</rtentry>
+	</loctun>
+</vr>
+
+<vr name="Cloud_1">
+	<clotun>
+		<target>Tunnel_1</target>
+		<network>192.168.3.0</network>
+		<nic>fe:fd:03:09:00:01</nic>
+		<ip>192.168.3.136</ip>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.3.146">192.168.1.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="192.168.3.146">192.168.2.0</rtentry>
+		<rtentry netmask="255.255.255.0" nexthop="0.0.0.0">192.168.3.0</rtentry>
+</clotun>
+
+</vr>
+
+<vm name="UML_1">
+	<filesystem type="cow">root_fs_beta2</filesystem>
+	<if>
+		<target>Router_1</target>
+		<network>192.168.1.0</network>
+		<mac>fe:fd:02:00:00:01</mac>
+		<ip>192.168.1.2</ip>
+		<route type="net" netmask="255.255.255.0" gw="192.168.1.128">192.168.2.0</route>
+		<route type="net" netmask="255.255.255.0" gw="192.168.1.128">192.168.3.0</route>
+	</if>
+</vm>
+
+</gloader>

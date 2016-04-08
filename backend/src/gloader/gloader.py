@@ -34,6 +34,11 @@ nodes = []
 # set this switch True if running gloader without gbuilder
 independent = False
 
+# Add the gini root directory to the search path for imports
+# just for importing the AWS keys
+sys.path.append(os.environ['GINI_ROOT'])
+import keys
+
 def system(command):
     subprocess.call(["/bin/bash", "-c", command])
 
@@ -262,14 +267,14 @@ def createVR(myGINI, options):
     isLocalTunConfWritten = False
     s = AmazonCloudFunctions()
     print("Authenticating with AWS ... ")
-    s.configure_aws("AKIAIM65WKOBI3B3ETKA","emIme22KJKEPwrNIVbZ4h+FLeUhDrwNgqKWt55su")#put keys here didnt want to commit them
+    s.configure_aws(keys.AWS_KEY, keys.AWS_SECRET)#put keys here didnt want to commit them
     #s.create_instance()
     print("AWS Authenticated")
     #s.get_running_instance("172.31.44.62")
     s.create_instance()
     print("Obtained running instance "+s.get_private_ip())
     print("Waiting for instance to get up and running ...takes about 1 min, blame Amazon!")
-    time.sleep(60)
+    time.sleep(80)
     tunnel_port = "50001"
     cloud_config_file=None
     tunnel_config_file = None

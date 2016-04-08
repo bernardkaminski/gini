@@ -12,6 +12,7 @@ class AmazonCloudFunctions:
     def __init__(self):
         self.key_pair = None
         self.key_name = "GINI"
+        self.security_group = "GINI"
         self.key_path = os.environ["GINI_ROOT"]+"/"+self.key_name+".pem"
         self.ec2 = None
         self.new_instance_ip = None  # just for debugging
@@ -53,10 +54,10 @@ class AmazonCloudFunctions:
 
     def create_instance(self):
         # If the GINI key does not exist, create it
-        found_key = 0
+        found_key = False
         for key_info in self.ec2.key_pairs.all():
             if key_info.key_name == self.key_name and os.path.exists(self.key_path):
-                found_key = 1
+                found_key = True
                 print("Key already exists")
                 os.chmod(self.key_path, 0400)
                 break
@@ -66,10 +67,27 @@ class AmazonCloudFunctions:
                 break
         if not found_key:
             self.key_gen()
+
+        security_group = None
+        found_security_group = False
+        try:
+            security_group = self.ec2.create_security_group(
+                DryRun=False,
+                GroupName=self.security_group,
+                Description='GINI Cloud Computing'
+            )
+        except:
+            print("Security group already exists")
+            found_security_group = True
+
+        if not found_security_group:
+            self.create_security_group(security_group)
+
+
         # This image ID is a special image that has the yRouter installed on it
         new_instance = self.ec2.create_instances(ImageId="ami-7e84701e", MinCount=1, MaxCount=1,
                                                  InstanceType='t2.micro', KeyName=self.key_name,
-                                                 SecurityGroups=['GINI', ])
+                                                 SecurityGroups = [self.security_group,])
         # Chill for that instance to be crafted
         while (new_instance[0].public_ip_address == None):
             new_instance[0].load()  # Get current status
@@ -143,19 +161,25 @@ class AmazonCloudFunctions:
         # Wait after starting router so they have time to create sockets
         time.sleep(2)
 
-    def add_udp_rules(self):
-
-        security_group = self.ec2.create_security_group(
-            DryRun=False,
-            GroupName='test',
-            Description='this is a test'
-        )
-
+    def create_security_group(self, security_group):
+        # Add SSH
         response = security_group.authorize_ingress(
             DryRun=False,
-            GroupName='test',
-            IpProtocol='udp',
-            FromPort=0,
+            GroupName=self.security_group,
+            IpProtocol='tcp',
+            FromPort=22,
+            ToPort=22,
+            CidrIp='0.0.0.0/0'
+        )
+
+        # Allow the TCP tunnel
+        response = security_group.authorize_ingress(
+            DryRun=False,
+            GroupName=self.security_group,
+            IpProtocol='tcp',
+            FromPort=50000,
             ToPort=65000,
             CidrIp='0.0.0.0/0'
         )
+
+        print("Created "+self.security_group + " security_group")
