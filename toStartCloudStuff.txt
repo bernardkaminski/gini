@@ -1,14 +1,17 @@
 Create an AWS account, and obtain a AWS key and AWS Secret key
 git clone https://github.com/bernardkaminski/gini.git
+Open .bashrc in your favourite editor
+At top of file, add line: export GINI_HOME=$HOME/gini
+On next line, add: export PATH=$PATH:$GINI_HOME/bin
+Save and close .bashrc
+source .bashrc
 cd gini/
 git checkout Cloud // Switch to the cloud branch
-export GINI_HOME=<where you want to put the .gini folder of metadata>  // Bunch of files that allow the backend and frontend to communicate 
-export GINI_ROOT=<path to the repo you just cloned>
-echo "AWS_KEY = <your AWS key>" >> keys.py   // Note this keys.py should be in the gini dir you cloned
-echo "AWS_SECRET = <your AWS secret key>" >> keys.py
+echo "AWS_KEY = \"<your AWS access key ID>\"" >> keys.py   // slashes and quotation marks included
+echo "AWS_SECRET = "<your AWS secret key>\"" >> keys.py	// Note this keys.py should be in the gini dir you cloned
 scons install
 bin/gbuilder
-Inside the GUI that opens, click on the open icon, then select AmazonTest.gsav
+Inside the GUI that opens, click on the open icon, then select AmazonTest.gsav from the gini directory
 Click the green play button
 Wait 1-2 minutes for the cloud instance to get running
 
