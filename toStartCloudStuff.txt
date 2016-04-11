@@ -8,7 +8,7 @@ source .bashrc
 cd gini/
 git checkout Cloud // Switch to the cloud branch
 echo "AWS_KEY = \"<your AWS access key ID>\"" >> keys.py   // slashes and quotation marks included
-echo "AWS_SECRET = "<your AWS secret key>\"" >> keys.py	// Note this keys.py should be in the gini dir you cloned
+echo "AWS_SECRET = \"<your AWS secret key>\"" >> keys.py	// Note this keys.py should be in the gini dir you cloned
 scons install
 bin/gbuilder
 Inside the GUI that opens, click on the open icon, then select AmazonTest.gsav from the gini directory
